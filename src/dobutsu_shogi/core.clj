@@ -301,6 +301,15 @@
         (filter (fn [[i j]] (bin-can-move? board i j turn))
                 (map (fn [[i j]] [(+ i oldi) (+ j oldj)]) (bin-animals (bin-get-cell board oldi oldj))))))))
 
+(defn bin-hand-indexs [^long board ^long hands ^long turn]
+  "return indexs of turn's hand"
+  (let [bias (if (= turn 2r1000) 21 0)]
+    (filter #(not= % nil)
+            (for [i (range 7)]
+              (if (not= (bin-get-hands hands (+ bias (* 3 i))) 0)
+                i
+                nil)))))
+
 (defn bin-move [^long board [oldi oldj] [newi newj] ^long turn]
   "return board, and get animal, return false if cannot move"
   (let [movables (bin-movable  board oldi oldj turn)
@@ -317,7 +326,7 @@
       false)))
 
 (defn bin-ai-random [^long board ^long hands ^long turn]
-  "return randam hand [:move [oldi oldj] [newi newj] e-value]"
+  "return randam hand [:move [oldi oldj] [newi newj] value]"
   (let [result (filter #(and (not-empty %)
                              (not-empty (nth % 2)))
                        (for [i (range 4) j (range 3)]
@@ -326,8 +335,27 @@
                                     (= (bit-and p 2r1000) turn))
                              [:move [i j] (random-pick (bin-movable board i j turn)) 0]
                              []
-                             ))))]
-    (random-pick result)))
+                             ))))
+        all-hand-indexs
+        (bin-hand-indexs board hands turn)
+        puts-result
+        (apply concat
+               (for [i (range 4) j (range 3)]
+                 (if (= 2r0000 (bin-get-cell board i j))
+                   (map (fn [index]
+                          [:put index [i j] 0]
+                          )
+                        all-hand-indexs))))
+        ]
+    ;(random-pick (concat result puts-result))))
+    (if (empty? puts-result)
+      (random-pick result)
+      (random-pick puts-result))))
+
+(println (bin-ai-random (board->binary test-board) (->> 2r0
+                                                       (bin-add-hands 2r101 2r1000)
+                                                       (bin-add-hands 2r011 2r1000)) 2r1000))
+(println (bin-ai-random (board->binary test-board) 2r0 2r1000))
 
 (defn evaluate [^long board ^long hands]
   "return plus if turn 2r1000 is win."
@@ -343,15 +371,6 @@
                  (reduce + (filter #(not (zero? %)) (for [i (range 7)]
                                                       (bin-get-hands hands (* 3 i)))))))]
     v))
-
-(defn bin-hand-indexs [^long board ^long hands ^long turn]
-  "return indexs of turn's hand"
-  (let [bias (if (= turn 2r1000) 21 0)]
-    (filter #(not= % nil)
-            (for [i (range 7)]
-              (if (not= (bin-get-hands hands (* 3 i)) 0)
-                i
-                nil)))))
 
 (defn bin-all-moves [^long board ^long hands ^long turn]
   "return {[2 1] ([1 1]), [3 1] ([2 2] [2 0]), [3 2] ([2 2]), [oldi oldj] ([ni nj] [ni nj])}
@@ -483,7 +502,9 @@
                   (let [ai-result (if (= human-turn turn)
                                     (bin-ai-negamx board hands turn)
                                     (bin-ai-random board hands turn))]
+                    (println ai-result)
                     (if (= (first ai-result) :move)
+                      ;;;; move
                       (let [
                             move-pos (rest ai-result)
                             result (bin-move board (first move-pos) (second move-pos) turn)
@@ -494,14 +515,26 @@
                         (println "                     move from" (first move-pos) "to" (second move-pos) " evaluate value:" (second (rest move-pos)))
                         (println)
                         (recur new-board new-hands (bit-xor turn 2r1000) (inc n)))
-                      (println "ERROR"))
-                      )))]
+                      ;;;; put
+                      (let [
+                            put-pos (rest ai-result)
+                            index (first put-pos)
+                            [i j]  (second put-pos)
+                            value (second (rest put-pos))
+                            new-board (long (bin-set-cell board i j (bin-get-hands hands (+ (* 3 index) (if (= 2r1000 turn) 21 0)))))
+                            new-hands (long (bin-set-hands hands (+ (* 3 index) (if (= 2r1000 turn) 21 0)) 2r000))
+                            ]
+                        (println "                     put from" index "to" [i j] " evaluate value:" value)
+                        (println)
+                        (recur new-board new-hands (bit-xor turn 2r1000) (inc n)))
+                      )
+                    )))]
     (game1 bin-init-board 2r0 2r0000 0)))
 
 (time (game 2r1000))
 (time (game 2r0000))
 (bin-show-board bin-init-board)
-(bin-ai-random (board->binary test-board) 2r0 2r1000)
+(println (bin-ai-random (board->binary test-board) 2r0 2r1000))
 (board->binary test-board)
 (bin-movable (board->binary test-board) 3 1 2r1000) ; [2 2] [2 0]
 (binary->board (:board (bin-move   (board->binary test-board) [3 1] [2 2] 2r1000)))
