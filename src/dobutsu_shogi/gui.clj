@@ -4,6 +4,7 @@
   (:require [seesaw.core :as sc]
             [seesaw.graphics :as sg]
             [seesaw.timer :as st]
+            [clojure.stacktrace :as cs]
             [dobutsu-shogi.core :as dc])
   (:import  [javax.swing ImageIcon JLabel]
             [javax.swing ImageIcon JButton]
@@ -22,6 +23,16 @@
      [nil       [:chi  :a] nil      ]
      [nil       [:chi  :b] nil      ]
      [[:ele :b] [:lion :b] [:gir :b]]]))
+
+(def bin-board (ref dc/bin-init-board))
+(def bin-turn  (ref 2r1000))
+(def bin-hands (ref
+                 (-> 2r000
+                     (dc/bin-add-hands 2r001 2r1000)
+                     (dc/bin-add-hands 2r101 2r0000)
+                     (dc/bin-add-hands 2r001 2r1000)
+                     (dc/bin-add-hands 2r011 2r0000)
+                     )))
 
 ;; immutable
 
@@ -48,55 +59,76 @@
   (let [bbh (quot (get-block-height can) 2)
         sx (+ (get-bias can) 1 (* (+ (get-block-width can) 1) 3))
         i (- 7 (quot y (+ bbh 1)))]
-    (if (or (<= x sx) (>= i (count @play-hands)))
+    (if (or (<= x sx) (>= i (dc/count-hands @bin-hands 2r1000)))
       :bad
       i)))
 
-(defn get-image [animal]
-  (let [prefix (if (= (second animal) :a) "rot_" "")]
+;(defn get-image [animal]
+;  (let [prefix (if (= (second animal) :a) "rot_" "")]
+;    (.getImage
+;      (ImageIcon.
+;        (clojure.java.io/resource
+;          (str prefix (apply str (rest (str (first animal)))) ".png"))))))
+
+(defn bin-get-image [animal]
+  (let [prefix (if (= (bit-and animal 2r1000) 2r0000) "rot_" "")]
     (.getImage
       (ImageIcon.
         (clojure.java.io/resource
-          (str prefix (apply str (rest (str (first animal)))) ".png"))))))
+          (str prefix
+               (case (bit-and 2r111 animal)
+                 2r001 "chi"
+                 2r010 "gir"
+                 2r011 "ele"
+                 2r100 "lion"
+                 2r101 "for")
+               ".png"))))))
 
 
 (defn draw-animal! [can g bw bh i j animal]
-  (if (vector? animal)
+  (if (not= animal 0)
     (let [img-size 283
           sx (+ (get-bias can) 1 (* (+ bw 1) j))
           sy (+                1 (* (+ bh 1) i))
           ex (+ (get-bias can) 1 (* (+ bw 1) j) bw)
           ey (+                1 (* (+ bh 1) i) bh)
-          img (get-image animal)]
+          ;img (get-image animal)]
+          img (bin-get-image animal)]
       (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
 (defn draw-play-hands! [can g bw bh bbw bbh i animal]
-  (let [img-size 283
-        sx (+ (get-bias can) 1 (* (+ bw 1) 3))
-        ex (+ sx (get-bias can))
-        sy (+ (* (+ bbh 1) (- 7 i)) 1)
-        ey (+ sy bbh)
-        img (get-image [animal :b])]
-    (.drawImage g img sx sy ex ey 0 0 img-size img-size can)))
+  (if (not= animal 0)
+    (let [img-size 283
+          sx (+ (get-bias can) 1 (* (+ bw 1) 3))
+          ex (+ sx (get-bias can))
+          sy (+ (* (+ bbh 1) (- 7 i)) 1)
+          ey (+ sy bbh)
+          img (bin-get-image (bit-or 2r1000 animal))]
+      (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
 (defn draw-comp-hands! [can g bw bh bbw bbh i animal]
-  (let [img-size 283
-        sx 0
-        ex (get-bias can)
-        sy (+ (* (+ bbh 1) i) 1)
-        ey (+ sy bbh)
-        img (get-image [animal :a])]
-    (.drawImage g img sx sy ex ey 0 0 img-size img-size can)))
+  (if (not= animal 0)
+    (let [img-size 283
+          sx 0
+          ex (get-bias can)
+          sy (+ (* (+ bbh 1) i) 1)
+          ey (+ sy bbh)
+          img (bin-get-image animal)]
+      (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
 (defn draw-animals! [can g bw bh bbw bbh]
   (doall (for [i (range 4) j (range 3)]
-           (draw-animal! can g bw bh i j (dc/nnth @board i j))))
-  (doall (map (fn [ani i]
-                (draw-play-hands! can g bw bh bbw bbh i ani))
-              @play-hands (range 0 (count @play-hands))))
-  (doall (map (fn [ani i]
-                (draw-comp-hands! can g bw bh bbw bbh i ani))
-              @comp-hands (range 0 (count @comp-hands)))))
+           (draw-animal! can g bw bh i j (dc/bin-get-cell @bin-board i j))))
+  (doall (map (fn [i]
+                (draw-play-hands! can g bw bh bbw bbh i
+                                  (dc/bin-get-hands @bin-hands
+                                                    (+ 21 (* 3 i)))))
+              (range 7)))
+  (doall (map (fn [i]
+                (draw-comp-hands! can g bw bh bbw bbh i
+                                  (dc/bin-get-hands @bin-hands
+                                                    (* 3 i))))
+              (range 7))))
 
 (defn draw-rect! [can g bw bh i j status]
   (let [lw 3 ; line-width
@@ -138,7 +170,10 @@
 
 (defn draw-frame! [can g bw bh]
   (if @selected-cell
-    (let [movables (dc/movable @board (first @selected-cell) (second @selected-cell) :b)]
+    (let [movables (dc/bin-movable
+                     (long @bin-board)
+                     (long (first @selected-cell))
+                     (long (second @selected-cell)) 2r1000)]
       (draw-rect!
         can g bw bh
         (second @selected-cell)
@@ -159,8 +194,9 @@
                         (second e)
                         (first e)
                         :movable))
-                    (filter #(not (dc/nnth @board (first %) (second %))) (for [i (range 4) j (range 3)] [i j]))))))
-
+                    (filter #(zero? (dc/bin-get-cell @bin-board
+                                                   (first %) (second %)))
+                            (for [i (range 4) j (range 3)] [i j]))))))
 
 (defn paint-event! [can g]
   (let [w (get-board-width  can)
@@ -199,6 +235,7 @@
 (defn canvas-clicked! [e]
   (let [pos   (mouse2cell (.getSource e) (.getX e) (.getY e))
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
+    (println "hands:" hands "pos:" pos)
     (cond
       ; out of board
       (and (nil? pos) (nil? hands)) (dosync (ref-set selected-cell nil))
@@ -206,15 +243,18 @@
       (= hands @selected-hands) (dosync (ref-set selected-hands nil))
       ; select hand
       (not (= :bad hands)) (dosync (ref-set selected-cell nil)
-                                 (ref-set selected-hands hands))
+                                   (ref-set selected-hands hands)
+                                   )
       ; unselect pivot cell
       (= pos @selected-cell) (dosync (ref-set selected-cell nil))
       ; put animal
-      (and @selected-hands pos (nil? (dc/nnth @board (first pos) (second pos))))
+      ;(and @selected-hands pos (nil? (dc/nnth @board (first pos) (second pos))))
+      (and @selected-hands pos (= 0 (dc/bin-get-cell @bin-board (first pos) (second pos))))
       (let [newb (dc/put @board (first pos) (second pos) (nth @play-hands @selected-hands)
                          :b)]
-        (dosync (ref-set board newb)
-                (ref-set play-hands (vec-remove @play-hands @selected-hands))
+        (dosync (ref-set bin-board newb)
+                (ref-set bin-hands (vec-remove @play-hands @selected-hands))
+                (ref-set bin-turn 2r0000)
                 (ref-set selected-hands nil)
                 (ref-set turn :a)
         ))
@@ -307,4 +347,4 @@
 (defn -main []
   (show-frame!))
 
-;(show-frame!)
+(show-frame!)

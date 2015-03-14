@@ -180,6 +180,15 @@
       (bin-set-hands hands idx cell)
       (recur (+ idx 3)))))
 
+(defn count-hands [^long hands ^long turn]
+    (count (filter #(not (zero? %))
+            (for [i (range 7)]
+              (bin-get-hands
+                hands
+                (if (= turn 2r1000)
+                  (+ 21 (* 3 i))
+                  (* 3 i)))))))
+
 (defn bin-can-move? [^long board i j ^long turn]
   "return true if *turn* player can put animal at <i,j>"
   (and (not (out-of-board? i j board))
@@ -351,13 +360,14 @@
                (flush)))))
 
 
-;(bin-show-hands
+;(count-hands
 ;  (-> 2r000
 ;      (bin-add-hands 2r001 2r1000)
 ;      (bin-add-hands 2r101 2r0000)
 ;      (bin-add-hands 2r001 2r1000)
 ;      (bin-add-hands 2r011 2r0000)
-;      ))
+;      )
+;  2r1000)
 
 
 (defn bin-hand-indexs [^long board ^long hands ^long turn]
