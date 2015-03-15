@@ -8,138 +8,6 @@
 (def height 4)
 (def width  3)
 
-(defn drop-last-first [col]
-  "drop first adn last element"
-  (drop 1 (drop-last col)))
-
-(defn nnth
-  "use get-in"
-  ([col i j]   (nth (nth col i) j))
-  ([col i j k] (nth (nnth col i j) k)))
-
-(defn update-nnth
-  "use update-in"
-  ([col i j x]
-   (let [p (nth col i)]
-     (assoc col i (assoc p j x)))))
-
-(defn toggle[col]
-  (map
-    (fn [x] (update-in  x [0] #(- 0 %)))
-    col))
-
-(defn fmap [m f]
-  (into {} (for [[k v] m] [k (f v)])))
-
-(def animals
-  "movable direction [i,j]"
-  (let [b {:lion [[-1 -1] [+1 +1] [-1 +1]
-                  [+1 -1] [-1 0] [+1 0] [0 -1] [0 +1]]
-           :gir  [[+1 0] [-1 0] [0 +1] [0 -1]]
-           :ele  [[+1 +1] [-1 -1] [+1 -1] [-1 +1]]
-           :chi  [[-1 0]]
-           :for  [[-1 0] [-1 -1] [-1 +1] [0 -1] [0 +1] [+1 0]]}]
-    {:a (fmap b toggle),
-     :b b}))
-;(println animals)
-
-(defn out-of-board? [i j board]
-  (or (< i 0)
-      (< j 0)
-      (>= i height)
-      (>= j width)))
-
-(defn empty-cell? [board i j]
-  (nil? (nnth board i j)))
-
-(defn can-move? [board i j turn]
-  (and (not (out-of-board? i j board))
-       (not (= (nnth board  i j 1) turn))))
-
-(defn movable [board oldi oldj turn]
-  "return movable positions, return keyword if cannot move"
-  (cond (out-of-board? oldi oldj board)
-        :out-of-board
-        (empty-cell? board oldi oldj)
-        :no-aminal
-        (not (= (nnth board oldi oldj 1) turn))
-        :not-yours
-        :else
-        (filter #(can-move? board (first %) (second %) turn)
-                (map #(map + [oldi oldj] %)
-                     ((animals turn)
-                      (nnth board oldi oldj 0))))))
-
-(defn move [board oldi oldj newi newj turn]
-  "return board, and get animal, return false if cannot move"
-  (let [movables (movable board oldi oldj turn)
-        s        (nnth board oldi oldj)
-        selected (if (and (= (first s) :chi)
-                          (or (and (= (second s) :b) (= newi 0) (= oldi 1))
-                              (and (= (second s) :a) (= newi 3) (= oldi 2))))
-                   [:for (second s)]
-                   s)]
-    (if (and (not (keyword? movables))
-             (some #(= % [newi newj]) movables))
-      {:board (update-nnth (update-nnth board newi newj selected) oldi oldj nil)
-       :get (nnth board newi newj 0)}
-      false)))
-
-(defn put [board i j animal turn]
-  "return board, return false if cannot put"
-  (cond (and (not (out-of-board? i j board))
-             (empty-cell? board i j))
-        (update-nnth board i j [animal turn])
-        :else
-        false))
-
-(defn random-pick [col]
-  (if (empty? col)
-    []
-    (nth col (int (rand (count (vec col)))))))
-
-(defn ai-random [board turn]
-  "return randam hand [[oldi oldj] [newi newj]]"
-  (random-pick (filter #(and (not-empty %)
-                             (not-empty (second %)))
-                       (for [i (range 4) j (range 3)]
-                         (let [p (nnth board i j)]
-                           (if (and (not (nil? p))
-                                    (= (second p) turn))
-                             [[i j] (random-pick (movable board i j turn))]
-                             []
-                             ))))))
-
-(def test-board [[[:gir :a] [:lion :a] [:ele :a]]
-                 [nil       [:chi  :a] nil      ]
-                 [nil       [:chi  :b] nil      ]
-                 [[:ele :b] [:lion :b] [:gir :b]]
-                 ])
-
-;(ai-random test-board :a)
-
-;(random-pick (movable test-board 2 1 :b))
-;(nnth test-board 3 2)
-;(nnth test-board 3 2 1)
-;(move test-board 3 1 2 2 :b)
-;(put  test-board 1 0 :lion :a)
-
-;(println "莟")
-;(println animals)
-;(println (movable test-board 3 2 :b))
-;(println (movable test-board 4 1 :b))
-;(println (movable test-board 4 2 :b))
-;(println (movable test-board 4 3 :b))
-;(println (movable test-board 2 1 :b))
-;(println (map #(map + [1 2] %) [[2 3][4 5]]))
-
-;(clojure.repl/find-doc "doc")
-;(clojure.repl/doc ns)
-;(doc nth)
-;(find-doc "in")
-
-;------------------- binary board -----------------------;
-
 (def bin-init-board 189874330207042)
 (def bin-init-hands 2r0)
 (def bin-animals
@@ -153,6 +21,17 @@
     (into {} (concat
                b
                (map (fn [[k v]] [(bit-xor k 2r1000) (map (fn [x] [(- (first x)) (second x)]) v)]) b)))))
+
+(defn random-pick [col]
+  (if (empty? col)
+    []
+    (nth col (int (rand (count (vec col)))))))
+
+(defn out-of-board? [i j board]
+  (or (< i 0)
+      (< j 0)
+      (>= i height)
+      (>= j width)))
 
 (defn bin-get-cell [^long board i j]
   (bit-and 2r1111 (bit-shift-right board (* 4 (+ (* width i) j)))))
@@ -274,25 +153,8 @@
 
 (mapcat (fn [x] [[1 2]]) (range 10))
 
-;(println (try?
-;           (board->binary [[[:gir :b] [:lion :a] [:ele :a]]
-;                           [nil       [:chi  :a] nil      ]
-;                           [nil       [:chi  :b] nil      ]
-;                           [[:ele :b] [:lion  :a] [:gir :a]]
-;                           ])
-;           3 1 2r0000))
-
-;(println (try?
-;           (board->binary [[[:gir :a] [:lion :a]   [:ele :a]]
-;                           [nil       nil          nil]
-;                           [[:chi :a] [:lion  :b]  nil      ]
-;                           [[:ele :b] nil          [:gir :b]]
-;                           ])
-;           3 2 2r0000))
-
 (defn bin-winner [^long board ^long hands]
-  "return 2rx000 if end game, -1 othewise.
-  todo: implement try"
+  "return 2rx000 if end game, -1 othewise."
   (cond
     ;; get lion
     (some #(= % 2r100) (for [i (range 7)] (bin-get-hands hands (* 3 i))))
@@ -312,14 +174,6 @@
     2r1000
     :else
     -1))
-
-;(println (bin-winner
-;           (board->binary [[[:gir :a] [:lion :b] [:ele :a]]
-;                           [nil       [:chi  :a] nil      ]
-;                           [nil       [:chi  :b] nil      ]
-;                           [[:ele :b] [:lion  :a] [:gir :a]]
-;                           ])
-;           2r000))
 
 (defn bin-show-hands [^long hands]
   (let [r
@@ -360,17 +214,6 @@
                           (flush))))
                (println)
                (flush)))))
-
-
-;(count-hands
-;  (-> 2r000
-;      (bin-add-hands 2r001 2r1000)
-;      (bin-add-hands 2r101 2r0000n)
-;      (bin-add-hands 2r001 2r1000)
-;      (bin-add-hands 2r011 2r0000)
-;      )
-;  2r1000)
-
 
 (defn bin-hand-indexs [^long board ^long hands ^long turn]
   "return indexs of turn's hand"
@@ -418,15 +261,9 @@
                           )
                         all-hand-indexs))))
         ]
-    ;(random-pick (concat result puts-result))))
     (if (empty? puts-result)
       (random-pick result)
       (random-pick puts-result))))
-
-;(println (bin-ai-random (board->binary test-board) (->> 2r0
-;                                                       (bin-add-hands 2r101 2r1000)
-;                                                       (bin-add-hands 2r011 2r1000)) 2r1000))
-;(println (bin-ai-random (board->binary test-board) 2r0 2r1000))
 
 (defn evaluate [^long board ^long hands]
   "return plus if turn 2r1000 is win."
@@ -488,19 +325,6 @@
     (concat moves-result
             puts-result)))
 
-;(println (bin-get-cell bin-init-board 1 1))
-;(bin-all-moves bin-init-board bin-init-hands 2r1000)
-;(println (find-children bin-init-board bin-init-hands 2r1000))
-;(println (find-children
-;           bin-init-board
-;           (-> 2r000
-;               (bin-add-hands 2r001 2r1000)
-;               (bin-add-hands 2r101 2r0000)
-;               (bin-add-hands 2r011 2r1000)
-;               (bin-add-hands 2r011 2r0000)
-;               )
-;           2r1000))
-
 (defn negamax [board hands alpha beta color depth]
   (cond (= 1 depth)
         (* color (evaluate board hands))
@@ -541,19 +365,6 @@
         ]
         (last (sort-by (fn [[op old new value]] value)
                        (concat puts-result result)))))
-
-;(println (bin-all-moves 799070036736  (bin-add-hands bin-init-hands 2r101 2r1000) 0))
-;(bin-show-board 799070036736 )
-;(time (negamax bin-init-board bin-init-hands -10000 10001 1 7))
-;(time (negamax bin-init-board bin-init-hands -10000 10001 -1 7))
-;(println (bin-ai-random (board->binary test-board) 2r0 2r1000))
-;(println (bin-ai-negamx (board->binary test-board)
-;                        (->> 2r0
-;                             (bin-add-hands 2r101 2r1000)
-;                             (bin-add-hands 2r011 2r1000))
-;                        2r1000))
-;(time (bin-ai-negamx (board->binary test-board) 2r0 2r1000)) ; 180-220 ms
-;(time (bin-ai-negamx (board->binary test-board) 2r0 2r0000)) ; 180-220 ms
 
 (defn game [^long human-turn]
   (letfn [(game1 [^long board
@@ -601,20 +412,78 @@
                     )))]
     (game1 bin-init-board 2r0 2r0000 0)))
 
-;(time (game 2r1000))
-;(time (game 2r1000))
-;(time (game 2r1000))
-;(time (game 2r1000))
-;(time (game 2r0000))
-;(bin-show-board bin-init-board)
-;(println (bin-ai-random (board->binary test-board) 2r0 2r1000))
-;(board->binary test-board)
-;(bin-movable (board->binary test-board) 3 1 2r1000) ; [2 2] [2 0]
-;(binary->board (:board (bin-move   (board->binary test-board) [3 1] [2 2] 2r1000)))
-;(bin-move   (board->binary test-board) [3 1] [2 0] 2r1000)
-;(bin-can-move? (board->binary test-board) 0 0 2r1000) ;true
-;(bin-can-move? (board->binary test-board) 0 1 2r1000) ;true
-;(bin-can-move? (board->binary test-board) 0 2 2r1000) ;true
-;(bin-can-move? (board->binary test-board) 2 2 2r1000) ;true
-;(bin-can-move? (board->binary test-board) 2 1 2r1000) ;false
-;(binary->board (board->binary test-board))
+(comment
+  (time (game 2r1000))
+  (time (game 2r1000))
+  (time (game 2r1000))
+  (time (game 2r1000))
+  (time (game 2r0000))
+  (bin-show-board bin-init-board)
+  (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
+  (board->binary test-board)
+  (bin-movable (board->binary test-board) 3 1 2r1000) ; [2 2] [2 0]
+  (binary->board (:board (bin-move   (board->binary test-board) [3 1] [2 2] 2r1000)))
+  (bin-move   (board->binary test-board) [3 1] [2 0] 2r1000)
+  (bin-can-move? (board->binary test-board) 0 0 2r1000) ;true
+  (bin-can-move? (board->binary test-board) 0 1 2r1000) ;true
+  (bin-can-move? (board->binary test-board) 0 2 2r1000) ;true
+  (bin-can-move? (board->binary test-board) 2 2 2r1000) ;true
+  (bin-can-move? (board->binary test-board) 2 1 2r1000) ;false
+  (binary->board (board->binary test-board))
+  (println (try?
+             (board->binary [[[:gir :b] [:lion :a] [:ele :a]]
+                             [nil       [:chi  :a] nil      ]
+                             [nil       [:chi  :b] nil      ]
+                             [[:ele :b] [:lion  :a] [:gir :a]]
+                             ])
+             3 1 2r0000))
+  (println (try?
+             (board->binary [[[:gir :a] [:lion :a]   [:ele :a]]
+                             [nil       nil          nil]
+                             [[:chi :a] [:lion  :b]  nil      ]
+                             [[:ele :b] nil          [:gir :b]]
+                             ])
+             3 2 2r0000))
+  (println (bin-winner
+             (board->binary [[[:gir :a] [:lion :b] [:ele :a]]
+                             [nil       [:chi  :a] nil      ]
+                             [nil       [:chi  :b] nil      ]
+                             [[:ele :b] [:lion  :a] [:gir :a]]
+                             ])
+             2r000))
+  (count-hands
+    (-> 2r000
+        (bin-add-hands 2r001 2r1000)
+        (bin-add-hands 2r101 2r0000)
+        (bin-add-hands 2r001 2r1000)
+        (bin-add-hands 2r011 2r0000)
+        )
+    2r1000)
+  (println (bin-ai-random (board->binary test-board) (->> 2r0
+                                                          (bin-add-hands 2r101 2r1000)
+                                                          (bin-add-hands 2r011 2r1000)) 2r1000))
+  (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
+  (println (bin-all-moves 799070036736  (bin-add-hands bin-init-hands 2r101 2r1000) 0))
+  (bin-show-board 799070036736 )
+  (time (negamax bin-init-board bin-init-hands -10000 10001 1 7))
+  (time (negamax bin-init-board bin-init-hands -10000 10001 -1 7))
+  (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
+  (println (bin-ai-negamx (board->binary test-board)
+                          (->> 2r0
+                               (bin-add-hands 2r101 2r1000)
+                               (bin-add-hands 2r011 2r1000))
+                          2r1000))
+  (time (bin-ai-negamx (board->binary test-board) 2r0 2r1000)) ; 180-220 ms
+  (time (bin-ai-negamx (board->binary test-board) 2r0 2r0000)) ; 180-220 ms
+  (println (bin-get-cell bin-init-board 1 1))
+  (bin-all-moves bin-init-board bin-init-hands 2r1000)
+  (println (find-children bin-init-board bin-init-hands 2r1000))
+  (println (find-children
+             bin-init-board
+             (-> 2r000
+                 (bin-add-hands 2r001 2r1000)
+                 (bin-add-hands 2r101 2r0000)
+                 (bin-add-hands 2r011 2r1000)
+                 (bin-add-hands 2r011 2r0000)
+                 )
+             2r1000)))

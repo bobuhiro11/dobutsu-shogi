@@ -209,6 +209,18 @@
   [coll pos]
   (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
 
+(defn init-state []
+  (dosync
+    (ref-set selected-cell  nil)
+    (ref-set selected-hands nil)
+    (ref-set bin-turn       2r1000)
+    (ref-set bin-hands      2r000)
+    (ref-set bin-board      dc/bin-init-board)))
+
+(defn newgame-clicked! [e]
+  (init-state))
+
+
 (defn canvas-clicked! [e]
   (let [pos   (mouse2cell      (.getSource e) (.getX e) (.getY e))
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
@@ -281,7 +293,6 @@
                          [(long (first  pos))
                           (long (second pos))]
                          2r1000)]
-        (println "move a")
         (dosync
           (ref-set bin-board (:board move-result))
           (ref-set bin-hands
@@ -347,15 +358,11 @@
                                (long (* (second mov) 3))
                                2r000))
                     (ref-set bin-turn 2r1000)
-                    )))))))
-
-(defn newgame-clicked! [e]
-  (dosync
-    (ref-set selected-cell  nil)
-    (ref-set selected-hands nil)
-    (ref-set bin-turn       2r1000)
-    (ref-set bin-hands      2r000)
-    (ref-set bin-board      dc/bin-init-board)))
+                    ))))))
+    (case (dc/bin-winner @bin-board @bin-hands)
+      2r0000 (do (sc/alert "あっちの勝ち") init-state)
+      2r1000 (do (sc/alert "こっちの勝ち") init-state)
+      -1 nil))
 
 (def canvas
   (ref (let [c (sc/canvas :paint paint-event!)]
@@ -393,4 +400,4 @@
 (defn -main []
   (show-frame!))
 
-(show-frame!)
+(comment (show-frame!))
