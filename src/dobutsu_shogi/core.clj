@@ -175,10 +175,12 @@
 
 (defn bin-add-hands [^long hands ^long cell turn]
   "cell 3bit"
-  (loop [idx (if (= 2r1000 (bit-and 2r1000 turn)) 21 0)]
-    (if (= (bin-get-hands hands idx) 2r000)
-      (bin-set-hands hands idx cell)
-      (recur (+ idx 3)))))
+  (let [mask-cell (and 2r111 cell)
+        c (if (= mask-cell 2r101) 2r001 mask-cell)]
+    (loop [idx (if (= 2r1000 (bit-and 2r1000 turn)) 21 0)]
+      (if (= (bin-get-hands hands idx) 2r000)
+        (bin-set-hands hands idx c)
+        (recur (+ idx 3))))))
 
 (defn count-hands [^long hands ^long turn]
     (count (filter #(not (zero? %))
@@ -363,7 +365,7 @@
 ;(count-hands
 ;  (-> 2r000
 ;      (bin-add-hands 2r001 2r1000)
-;      (bin-add-hands 2r101 2r0000)
+;      (bin-add-hands 2r101 2r0000n)
 ;      (bin-add-hands 2r001 2r1000)
 ;      (bin-add-hands 2r011 2r0000)
 ;      )

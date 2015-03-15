@@ -14,25 +14,10 @@
 ;; mutable
 (def selected-cell  (ref nil))
 (def selected-hands (ref nil))
-(def turn           (ref :b))
-(def comp-hands     (ref []))
-(def play-hands     (ref []))
-(def board
-  (ref
-    [[[:gir :a] [:lion :a] [:ele :a]]
-     [nil       [:chi  :a] nil      ]
-     [nil       [:chi  :b] nil      ]
-     [[:ele :b] [:lion :b] [:gir :b]]]))
 
 (def bin-board (ref dc/bin-init-board))
 (def bin-turn  (ref 2r1000))
-(def bin-hands (ref
-                 (-> 2r000
-                     (dc/bin-add-hands 2r001 2r1000)
-                     (dc/bin-add-hands 2r101 2r0000)
-                     (dc/bin-add-hands 2r001 2r1000)
-                     (dc/bin-add-hands 2r011 2r0000)
-                     )))
+(def bin-hands (ref 2r000))
 
 ;; immutable
 
@@ -59,16 +44,10 @@
   (let [bbh (quot (get-block-height can) 2)
         sx (+ (get-bias can) 1 (* (+ (get-block-width can) 1) 3))
         i (- 7 (quot y (+ bbh 1)))]
-    (if (or (<= x sx) (>= i (dc/count-hands @bin-hands 2r1000)))
+    (if (or (<= x sx)
+            (= 2r000 (dc/bin-get-hands @bin-hands (long (+ 21 (* i 3))))))
       :bad
       i)))
-
-;(defn get-image [animal]
-;  (let [prefix (if (= (second animal) :a) "rot_" "")]
-;    (.getImage
-;      (ImageIcon.
-;        (clojure.java.io/resource
-;          (str prefix (apply str (rest (str (first animal)))) ".png"))))))
 
 (defn bin-get-image [animal]
   (let [prefix (if (= (bit-and animal 2r1000) 2r0000) "rot_" "")]
@@ -84,7 +63,6 @@
                  2r101 "for")
                ".png"))))))
 
-
 (defn draw-animal! [can g bw bh i j animal]
   (if (not= animal 0)
     (let [img-size 283
@@ -92,7 +70,6 @@
           sy (+                1 (* (+ bh 1) i))
           ex (+ (get-bias can) 1 (* (+ bw 1) j) bw)
           ey (+                1 (* (+ bh 1) i) bh)
-          ;img (get-image animal)]
           img (bin-get-image animal)]
       (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
@@ -233,58 +210,75 @@
   (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
 
 (defn canvas-clicked! [e]
-  (let [pos   (mouse2cell (.getSource e) (.getX e) (.getY e))
+  (let [pos   (mouse2cell      (.getSource e) (.getX e) (.getY e))
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
-    (println "hands:" hands "pos:" pos)
+    ;(println "hands:" hands "pos:" pos)
     (cond
+      ;
       ; out of board
-      (and (nil? pos) (nil? hands)) (dosync (ref-set selected-cell nil))
+      ;
+      (and (nil? pos) (nil? hands))
+      (dosync (ref-set selected-cell nil))
+      ;
       ; unselect hand
-      (= hands @selected-hands) (dosync (ref-set selected-hands nil))
+      ;
+      (= hands @selected-hands)
+      (dosync (ref-set selected-hands nil))
+      ;
       ; select hand
-      (not (= :bad hands)) (dosync (ref-set selected-cell nil)
-                                   (ref-set selected-hands hands)
-                                   )
+      ;
+      (not (= :bad hands))
+      (dosync (ref-set selected-cell  nil)
+              (ref-set selected-hands hands))
+      ;
       ; unselect pivot cell
-      (= pos @selected-cell) (dosync (ref-set selected-cell nil))
+      ;
+      (= pos @selected-cell)
+      (dosync (ref-set selected-cell nil))
+      ;
       ; put animal
-      ;(and @selected-hands pos (nil? (dc/nnth @board (first pos) (second pos))))
+      ;
       (and @selected-hands
            pos
-           (= 0 (dc/bin-get-cell @bin-board
-                                 (long (first pos))
-                                 (long (second pos)))))
-      (let [newb (dc/bin-set-cell (long @bin-board)
-                                  (long (first pos))
-                                  (long (second pos))
-                                  (bit-or (long
-                                            (dc/bin-get-hands @bin-hands
-                                                              (long (+ 21 (* @selected-hands 3)))))
-                                          2r1000)
-                                  )]
+           (= 0 (dc/bin-get-cell
+                  @bin-board
+                  (long (first pos))
+                  (long (second pos)))))
+      (let [newb (dc/bin-set-cell
+                   (long @bin-board)
+                   (long (first pos))
+                   (long (second pos))
+                   (bit-or
+                     (long
+                       (dc/bin-get-hands
+                         @bin-hands
+                         (long (+ 21 (* @selected-hands 3)))))
+                     2r1000)
+                   )]
         (dosync (ref-set bin-board newb)
-                (ref-set bin-hands (dc/bin-set-hands
-                                     @bin-hands
-                                     (long (+ 21 (* @selected-hands 3)))
-                                     2r000))
+                (ref-set bin-hands
+                         (dc/bin-set-hands
+                           @bin-hands
+                           (long (+ 21 (* @selected-hands 3)))
+                           2r000))
                 (ref-set bin-turn 2r0000)
-                (ref-set selected-hands nil)
-                (ref-set turn :a)
-        ))
+                (ref-set selected-hands nil)))
+      ;
       ; move animal
+      ;
       (lazy-contains?
         (if (nil? @selected-cell)
           []
           (dc/bin-movable @bin-board
-                          (long (first @selected-cell))
+                          (long (first  @selected-cell))
                           (long (second @selected-cell))
                           2r1000))
         pos)
       (let [move-result
             (dc/bin-move @bin-board
-                         [(long (first @selected-cell))
+                         [(long (first  @selected-cell))
                           (long (second @selected-cell))]
-                         [(long (first pos))
+                         [(long (first  pos))
                           (long (second pos))]
                          2r1000)]
         (println "move a")
@@ -296,46 +290,72 @@
                      (dc/bin-add-hands @bin-hands
                                        (:get move-result)
                                        2r1000)))
-          (ref-set turn :a)
+          (ref-set bin-turn 2r0000)
           (ref-set selected-cell nil)))
       ; select pivot cell
       (let [cell (dc/bin-get-cell @bin-board
-                                  (long (first pos))
+                                  (long (first  pos))
                                   (long (second pos)))]
         (and (not= cell 0)
              (= 2r1000 (bit-and cell 2r1000))))
-      (dosync (ref-set selected-cell pos)
+      (dosync (ref-set selected-cell  pos)
               (ref-set selected-hands nil))
       :else
-      (dosync (ref-set selected-cell nil)
+      (dosync (ref-set selected-cell  nil)
               (ref-set selected-hands nil)))
+    ;
     ; com turn
-    (if (= @turn :a)
-      (let [mov (dc/ai-random @board :a)
-            move-result
-            (dc/move @board
-                     (first (first mov)) (second (first mov))
-                     (first (second mov)) (second (second mov)) :a)]
-        (dosync
-          (ref-set board (:board move-result))
-          (ref-set comp-hands
-                   (if (:get move-result)
-                     (into [(if (= :for (:get move-result)) :chi (:get move-result))] @comp-hands)
-                     @comp-hands))
-          (ref-set turn :b))
-          ))))
+    ;
+    (if (= @bin-turn 2r0000)
+      (let [mov (dc/bin-ai-negamx @bin-board @bin-hands 2r0000)]
+        (if (= (first mov) :move)
+          ;; move
+          (let [move-result
+                (dc/bin-move
+                  @bin-board
+                  [(long (first  (nth mov 1)))
+                   (long (second (nth mov 1)))]
+                  [(long (first  (nth mov 2)))
+                   (long (second (nth mov 2)))]
+                  2r0000)]
+            (dosync
+              (ref-set bin-board
+                       (:board move-result))
+              (ref-set bin-hands
+                       (if (zero? (:get move-result))
+                         @bin-hands
+                         (dc/bin-add-hands
+                           @bin-hands
+                           (:get move-result)
+                           2r0000)))
+              (ref-set bin-turn 2r1000)))
+          ;; put
+          (let [newb (dc/bin-set-cell
+                       (long @bin-board)
+                       (long (first  (nth mov 2)))
+                       (long (second (nth mov 2)))
+                       (bit-or
+                         (long (dc/bin-get-hands
+                                 @bin-hands
+                                 (long (* (second mov) 3))))
+                         2r0000)
+                       )]
+            (dosync (ref-set bin-board newb)
+                    (ref-set bin-hands
+                             (dc/bin-set-hands
+                               @bin-hands
+                               (long (* (second mov) 3))
+                               2r000))
+                    (ref-set bin-turn 2r1000)
+                    )))))))
 
 (defn newgame-clicked! [e]
   (dosync
-    (ref-set selected-cell nil)
-    (ref-set play-hands [])
-    (ref-set comp-hands [])
-    (ref-set turn :b)
-    (ref-set board
-             [[[:gir :a] [:lion :a] [:ele :a]]
-              [nil       [:chi  :a] nil      ]
-              [nil       [:chi  :b] nil      ]
-              [[:ele :b] [:lion :b] [:gir :b]]])))
+    (ref-set selected-cell  nil)
+    (ref-set selected-hands nil)
+    (ref-set bin-turn       2r1000)
+    (ref-set bin-hands      2r000)
+    (ref-set bin-board      dc/bin-init-board)))
 
 (def canvas
   (ref (let [c (sc/canvas :paint paint-event!)]
@@ -354,17 +374,19 @@
       :items
       [(sc/menu
          :text  "File"
-         :items [(sc/action :name "New Game" :key "menu N" :handler newgame-clicked!)])
+         :items [(sc/action :name    "New Game"
+                            :key     "menu N"
+                            :handler newgame-clicked!)])
        (sc/menu
          :text "Edit"
          :items [])]))))
 
 (defn show-frame! []
   (st/timer (fn [_] (.repaint @frame))
-            :start? true
+            :start?        true
             :initial-delay 1000
-            :delay 10
-            :repeats? true)
+            :delay         10
+            :repeats?      true)
   (sc/invoke-later
     (sc/show! @frame)))
 
