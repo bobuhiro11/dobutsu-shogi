@@ -220,6 +220,61 @@
 (defn newgame-clicked! [e]
   (init-state))
 
+(defn start-cpu-thread []
+  (.start (Thread.
+            (fn []
+              (loop []
+                (case (dc/bin-winner @bin-board @bin-hands)
+                  2r0000 (do (sc/alert "あっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
+                  2r1000 (do (sc/alert "こっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
+                  -1 nil)
+                (if (= @bin-turn 2r0000)
+                  (let [mov (dc/bin-ai-negamx @bin-board @bin-hands 2r0000)]
+                    (if (= (first mov) :move)
+                      ;; move
+                      (let [move-result
+                            (dc/bin-move
+                              @bin-board
+                              [(long (first  (nth mov 1)))
+                               (long (second (nth mov 1)))]
+                              [(long (first  (nth mov 2)))
+                               (long (second (nth mov 2)))]
+                              2r0000)]
+                        (dosync
+                          (ref-set bin-board
+                                   (:board move-result))
+                          (ref-set bin-hands
+                                   (if (zero? (:get move-result))
+                                     @bin-hands
+                                     (dc/bin-add-hands
+                                       @bin-hands
+                                       (:get move-result)
+                                       2r0000)))
+                          (ref-set bin-turn 2r1000))
+                        (println "evaluation value: "
+                                 (dc/evaluate @bin-board @bin-hands)))
+                      ;; put
+                      (let [newb (dc/bin-set-cell
+                                   (long @bin-board)
+                                   (long (first  (nth mov 2)))
+                                   (long (second (nth mov 2)))
+                                   (bit-or
+                                     (long (dc/bin-get-hands
+                                             @bin-hands
+                                             (long (* (second mov) 3))))
+                                     2r0000)
+                                   )]
+                        (dosync (ref-set bin-board newb)
+                                (ref-set bin-hands
+                                         (dc/bin-set-hands
+                                           @bin-hands
+                                           (long (* (second mov) 3))
+                                           2r000))
+                                (ref-set bin-turn 2r1000)
+                                )
+                        (println "evaluation value: "
+                                 (dc/evaluate @bin-board @bin-hands))))))
+                (recur))))))
 
 (defn canvas-clicked! [e]
   (let [pos   (mouse2cell      (.getSource e) (.getX e) (.getY e))
@@ -318,72 +373,21 @@
       :else
       (dosync (ref-set selected-cell  nil)
               (ref-set selected-hands nil)))
-    ;
-    ; com turn
-    ;
-    (if (= @bin-turn 2r0000)
-      (let [mov (dc/bin-ai-negamx @bin-board @bin-hands 2r0000)]
-        (if (= (first mov) :move)
-          ;; move
-          (let [move-result
-                (dc/bin-move
-                  @bin-board
-                  [(long (first  (nth mov 1)))
-                   (long (second (nth mov 1)))]
-                  [(long (first  (nth mov 2)))
-                   (long (second (nth mov 2)))]
-                  2r0000)]
-            (dosync
-              (ref-set bin-board
-                       (:board move-result))
-              (ref-set bin-hands
-                       (if (zero? (:get move-result))
-                         @bin-hands
-                         (dc/bin-add-hands
-                           @bin-hands
-                           (:get move-result)
-                           2r0000)))
-              (ref-set bin-turn 2r1000))
-            (println "evaluation value: "
-                     (dc/evaluate @bin-board @bin-hands)))
-          ;; put
-          (let [newb (dc/bin-set-cell
-                       (long @bin-board)
-                       (long (first  (nth mov 2)))
-                       (long (second (nth mov 2)))
-                       (bit-or
-                         (long (dc/bin-get-hands
-                                 @bin-hands
-                                 (long (* (second mov) 3))))
-                         2r0000)
-                       )]
-            (dosync (ref-set bin-board newb)
-                    (ref-set bin-hands
-                             (dc/bin-set-hands
-                               @bin-hands
-                               (long (* (second mov) 3))
-                               2r000))
-                    (ref-set bin-turn 2r1000)
-                    )
-            (println "evaluation value: "
-                     (dc/evaluate @bin-board @bin-hands)))))))
-    (case (dc/bin-winner @bin-board @bin-hands)
-      2r0000 (do (sc/alert "あっちの勝ち") (init-state))
-      2r1000 (do (sc/alert "こっちの勝ち") (init-state))
-      -1 nil))
+)
+)
 
 (def canvas
   (ref (let [c (sc/canvas :paint paint-event!)]
     (sc/listen c :mouse-clicked canvas-clicked!)
     c)))
 
-(def frame
-  (ref (sc/frame
+(defn make-frame [on-close]
+  (sc/frame
     :title   "どうぶつしょうぎ",
     :width    400
     :height   396
     :content  @canvas
-    :on-close :hide
+    :on-close on-close
     :menubar
     (sc/menubar
       :items
@@ -394,18 +398,20 @@
                             :handler newgame-clicked!)])
        (sc/menu
          :text "Edit"
-         :items [])]))))
+         :items [])])))
 
-(defn show-frame! []
-  (st/timer (fn [_] (.repaint @frame))
-            :start?        true
-            :initial-delay 1000
-            :delay         10
-            :repeats?      true)
-  (sc/invoke-later
-    (sc/show! @frame)))
+(defn show-frame! [on-close]
+  (let [frame (make-frame on-close)]
+    (st/timer (fn [_] (.repaint frame))
+              :start?        true
+              :initial-delay 1000
+              :delay         10
+              :repeats?      true)
+    (sc/invoke-later
+      (sc/show! frame))))
 
 (defn -main []
-  (show-frame!))
+  (start-cpu-thread)
+  (show-frame! :exit))
 
-(comment (show-frame!))
+(comment (start-cpu-thread) (show-frame! :hide))
