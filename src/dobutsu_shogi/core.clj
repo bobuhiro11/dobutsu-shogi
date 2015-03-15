@@ -7,9 +7,11 @@
 
 (def height 4)
 (def width  3)
+(def negamax-depth  4)
 
 (def bin-init-board 189874330207042)
 (def bin-init-hands 2r0)
+
 (def bin-animals
   "movable direction [i,j]"
   (let [b {2r1100 [[-1 -1] [+1 +1] [-1 +1]
@@ -33,42 +35,42 @@
       (>= i height)
       (>= j width)))
 
-(defn bin-get-cell [^long board i j]
+(defn bin-get-cell [^long board ^long i ^long j]
   (bit-and 2r1111 (bit-shift-right board (* 4 (+ (* width i) j)))))
 
-(defn bin-set-cell [^long board i j ^long cell]
-  (let [idx (* 4 (+ (* width i) j))]
+(defn bin-set-cell [^long board ^long i ^long j ^long cell]
+  (let [idx ^long (* 4 (+ (* width i) j))]
     (bit-or (bit-and (bit-xor (bit-shift-left 2r1111 idx)
                               16rFFFFFFFFFFFF)
                      board)
             (bit-shift-left cell idx))))
 
-(defn bin-set-hands [^long hands idx ^long cell]
+(defn bin-set-hands [^long hands ^long idx ^long cell]
   (bit-or (bit-and (bit-xor (bit-shift-left 2r111 idx)
                             16rFFFFFFFFFFFFFFF)
                    hands)
           (bit-shift-left cell idx)))
 
-(defn bin-get-hands [^long hands idx]
+(defn bin-get-hands [^long hands ^long idx]
   (bit-and 2r111 (bit-shift-right hands idx)))
 
-(defn bin-add-hands [^long hands ^long cell turn]
+(defn bin-add-hands [^long hands ^long cell ^long turn]
   "cell 3bit"
-  (let [mask-cell (and 2r111 cell)
-        c (if (= mask-cell 2r101) 2r001 mask-cell)]
-    (loop [idx (if (= 2r1000 (bit-and 2r1000 turn)) 21 0)]
+  (let [mask-cell ^long (and 2r111 cell)
+        c         ^long (if (= mask-cell 2r101) 2r001 mask-cell)]
+    (loop [idx    ^long (if (= 2r1000 (bit-and 2r1000 turn)) 21 0)]
       (if (= (bin-get-hands hands idx) 2r000)
         (bin-set-hands hands idx c)
         (recur (+ idx 3))))))
 
 (defn count-hands [^long hands ^long turn]
-    (count (filter #(not (zero? %))
-            (for [i (range 7)]
-              (bin-get-hands
-                hands
-                (if (= turn 2r1000)
-                  (+ 21 (* 3 i))
-                  (* 3 i)))))))
+  (count (filter #(not (zero? %))
+                 (for [i (range 7)]
+                   (bin-get-hands
+                     hands
+                     (if (= turn 2r1000)
+                       (+ 21 (* 3 i))
+                       (* 3 i)))))))
 
 (defn bin-can-move? [^long board i j ^long turn]
   "return true if *turn* player can put animal at <i,j>"
@@ -267,18 +269,56 @@
 
 (defn evaluate [^long board ^long hands]
   "return plus if turn 2r1000 is win."
-  (let [winner (bin-winner board hands)
-        v
-        (cond (= winner 2r1000)
-              2000
-              (= winner 2r0000)
-              -2000
-              :else
-              (- (reduce + (filter #(not (zero? %)) (for [i (range 7)]
-                                                      (bin-get-hands hands (+ 21 (* 3 i))))))
-                 (reduce + (filter #(not (zero? %)) (for [i (range 7)]
-                                                      (bin-get-hands hands (* 3 i)))))))]
-    v))
+  (let [winner ^long (bin-winner board hands)]
+    (cond (= winner 2r1000)
+          2000
+          (= winner 2r0000)
+          -2000
+          :else
+          (let [
+                board-value ^long
+                (reduce +
+                        (map (fn [^long cell ^long i]
+                               (if (= (bit-and cell 2r1000) 2r1000)
+                                 (case (bit-and cell 2r111)
+                                   2r100 (+ 50 (- 3 i))
+                                   2r101 4
+                                   2r010 3
+                                   2r011 3
+                                   2r001 1
+                                   0)
+                                 (case (bit-and cell 2r111)
+                                   2r100 (- -50 i)
+                                   2r101 -4
+                                   2r010 -3
+                                   2r011 -3
+                                   2r001 -1
+                                   0)))
+                             (for [i (range 4) j (range 3)]
+                               (bin-get-cell board i j))
+                             (for [i (range 4) j (range 3)]
+                               i)))
+                myhands ^long
+                (reduce +
+                        (map (fn [^long cell]
+                               (case cell
+                                 2r010 3
+                                 2r011 3
+                                 2r001 1
+                                 0))
+                             (for [i (range 7)]
+                               (bin-get-hands hands (+ 21 (* 3 i))))))
+                yourhands ^long
+                (reduce +
+                        (map (fn [^long cell]
+                               (case cell
+                                 2r010 -3
+                                 2r011 -3
+                                 2r001 -1
+                                 0))
+                             (for [i (range 7)]
+                               (bin-get-hands hands (* 3 i)))))]
+            (+ board-value myhands yourhands)))))
 
 (defn bin-all-moves [^long board ^long hands ^long turn]
   "return {[2 1] ([1 1]), [3 1] ([2 2] [2 0]), [3 2] ([2 2]), [oldi oldj] ([ni nj] [ni nj])}
@@ -325,6 +365,16 @@
     (concat moves-result
             puts-result)))
 
+(defn negamax2 [^long board ^long hands ^long color ^long depth]
+  (cond (= 1 depth)
+        (* color (evaluate board hands))
+        (not= (bin-winner board hands) -1)
+        (* color (evaluate board hands))
+        :else
+        (apply max
+               (map #(- (negamax2 (first %) (second %) (- color) (dec depth)))
+                    (find-children board hands (if (= color 1) 2r1000 2r0000))))))
+
 (defn negamax [board hands alpha beta color depth]
   (cond (= 1 depth)
         (* color (evaluate board hands))
@@ -340,15 +390,15 @@
 (defn bin-ai-negamx [^long board ^long hands ^long turn]
   (let [all-moves (bin-all-moves board hands turn)
         all-hand-indexs (bin-hand-indexs board hands turn)
-        color (if (= turn 2r1000) -1 +1)
+        color ^long (if (= turn 2r1000) -1 +1)
         result (mapcat (fn [[old v]]
                          (map (fn [new]
                                 (let [result (bin-move board old new turn)]
                                   (if (= result false)
                                     nil
                                     (if (= (:get result) 0)
-                                      [:move old new (- (negamax (:board result) hands                                    -10000 10000 color 3))]
-                                      [:move old new (- (negamax (:board result) (bin-add-hands hands (:get result) turn) -10000 10000 color 3))]
+                                      [:move old new (- (negamax (:board result) hands                                    -10000 10000 color negamax-depth))]
+                                      [:move old new (- (negamax (:board result) (bin-add-hands hands (:get result) turn) -10000 10000 color negamax-depth))]
                                       ))))
                               v)
                          ) all-moves)
@@ -413,6 +463,7 @@
     (game1 bin-init-board 2r0 2r0000 0)))
 
 (comment
+  (time (bin-movable bin-init-board 3 1 2r1000)) ; [2 2] [2 0]
   (time (game 2r1000))
   (time (game 2r1000))
   (time (game 2r1000))
@@ -421,9 +472,8 @@
   (bin-show-board bin-init-board)
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
   (board->binary test-board)
-  (bin-movable (board->binary test-board) 3 1 2r1000) ; [2 2] [2 0]
   (binary->board (:board (bin-move   (board->binary test-board) [3 1] [2 2] 2r1000)))
-  (bin-move   (board->binary test-board) [3 1] [2 0] 2r1000)
+  (bin-move      (board->binary test-board) [3 1] [2 0] 2r1000)
   (bin-can-move? (board->binary test-board) 0 0 2r1000) ;true
   (bin-can-move? (board->binary test-board) 0 1 2r1000) ;true
   (bin-can-move? (board->binary test-board) 0 2 2r1000) ;true
@@ -468,13 +518,13 @@
   (time (negamax bin-init-board bin-init-hands -10000 10001 1 7))
   (time (negamax bin-init-board bin-init-hands -10000 10001 -1 7))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
+  (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 180-220 ms
+  (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 180-220 ms
   (println (bin-ai-negamx (board->binary test-board)
                           (->> 2r0
                                (bin-add-hands 2r101 2r1000)
                                (bin-add-hands 2r011 2r1000))
                           2r1000))
-  (time (bin-ai-negamx (board->binary test-board) 2r0 2r1000)) ; 180-220 ms
-  (time (bin-ai-negamx (board->binary test-board) 2r0 2r0000)) ; 180-220 ms
   (println (bin-get-cell bin-init-board 1 1))
   (bin-all-moves bin-init-board bin-init-hands 2r1000)
   (println (find-children bin-init-board bin-init-hands 2r1000))

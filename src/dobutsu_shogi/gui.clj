@@ -274,7 +274,9 @@
                            (long (+ 21 (* @selected-hands 3)))
                            2r000))
                 (ref-set bin-turn 2r0000)
-                (ref-set selected-hands nil)))
+                (ref-set selected-hands nil))
+        (println "evaluation value: "
+                 (dc/evaluate @bin-board @bin-hands)))
       ;
       ; move animal
       ;
@@ -302,7 +304,9 @@
                                        (:get move-result)
                                        2r1000)))
           (ref-set bin-turn 2r0000)
-          (ref-set selected-cell nil)))
+          (ref-set selected-cell nil))
+        (println "evaluation value: "
+                 (dc/evaluate @bin-board @bin-hands)))
       ; select pivot cell
       (let [cell (dc/bin-get-cell @bin-board
                                   (long (first  pos))
@@ -339,7 +343,9 @@
                            @bin-hands
                            (:get move-result)
                            2r0000)))
-              (ref-set bin-turn 2r1000)))
+              (ref-set bin-turn 2r1000))
+            (println "evaluation value: "
+                     (dc/evaluate @bin-board @bin-hands)))
           ;; put
           (let [newb (dc/bin-set-cell
                        (long @bin-board)
@@ -358,7 +364,9 @@
                                (long (* (second mov) 3))
                                2r000))
                     (ref-set bin-turn 2r1000)
-                    ))))))
+                    )
+            (println "evaluation value: "
+                     (dc/evaluate @bin-board @bin-hands)))))))
     (case (dc/bin-winner @bin-board @bin-hands)
       2r0000 (do (sc/alert "あっちの勝ち") (init-state))
       2r1000 (do (sc/alert "こっちの勝ち") (init-state))
