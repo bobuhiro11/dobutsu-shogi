@@ -275,29 +275,40 @@
       (lazy-contains?
         (if (nil? @selected-cell)
           []
-          (dc/movable @board (first @selected-cell) (second @selected-cell) :b))
+          (dc/bin-movable @bin-board
+                          (long (first @selected-cell))
+                          (long (second @selected-cell))
+                          2r1000))
         pos)
       (let [move-result
-            (dc/move @board
-                     (first @selected-cell) (second @selected-cell)
-                     (first pos)            (second pos) :b)]
+            (dc/bin-move @bin-board
+                         [(long (first @selected-cell))
+                          (long (second @selected-cell))]
+                         [(long (first pos))
+                          (long (second pos))]
+                         2r1000)]
+        (println "move a")
         (dosync
-          (ref-set board (:board move-result))
-          (ref-set play-hands
-                   (if (:get move-result)
-                     (into [(if (= :for (:get move-result)) :chi (:get move-result))] @play-hands)
-                     @play-hands))
+          (ref-set bin-board (:board move-result))
+          (ref-set bin-hands
+                   (if (zero? (:get move-result))
+                     @bin-hands
+                     (dc/bin-add-hands @bin-hands
+                                       (:get move-result)
+                                       2r1000)))
           (ref-set turn :a)
           (ref-set selected-cell nil)))
       ; select pivot cell
-      (let [cell (dc/nnth @board (first pos) (second pos))]
-        (and (not (nil? cell))
-             (= (second cell) :b)))
+      (let [cell (dc/bin-get-cell @bin-board
+                                  (long (first pos))
+                                  (long (second pos)))]
+        (and (not= cell 0)
+             (= 2r1000 (bit-and cell 2r1000))))
       (dosync (ref-set selected-cell pos)
               (ref-set selected-hands nil))
       :else
       (dosync (ref-set selected-cell nil)
-            (ref-set selected-hands nil)))
+              (ref-set selected-hands nil)))
     ; com turn
     (if (= @turn :a)
       (let [mov (dc/ai-random @board :a)
