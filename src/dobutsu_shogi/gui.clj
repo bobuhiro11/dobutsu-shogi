@@ -249,11 +249,24 @@
       (= pos @selected-cell) (dosync (ref-set selected-cell nil))
       ; put animal
       ;(and @selected-hands pos (nil? (dc/nnth @board (first pos) (second pos))))
-      (and @selected-hands pos (= 0 (dc/bin-get-cell @bin-board (first pos) (second pos))))
-      (let [newb (dc/put @board (first pos) (second pos) (nth @play-hands @selected-hands)
-                         :b)]
+      (and @selected-hands
+           pos
+           (= 0 (dc/bin-get-cell @bin-board
+                                 (long (first pos))
+                                 (long (second pos)))))
+      (let [newb (dc/bin-set-cell (long @bin-board)
+                                  (long (first pos))
+                                  (long (second pos))
+                                  (bit-or (long
+                                            (dc/bin-get-hands @bin-hands
+                                                              (long (+ 21 (* @selected-hands 3)))))
+                                          2r1000)
+                                  )]
         (dosync (ref-set bin-board newb)
-                (ref-set bin-hands (vec-remove @play-hands @selected-hands))
+                (ref-set bin-hands (dc/bin-set-hands
+                                     @bin-hands
+                                     (long (+ 21 (* @selected-hands 3)))
+                                     2r000))
                 (ref-set bin-turn 2r0000)
                 (ref-set selected-hands nil)
                 (ref-set turn :a)
