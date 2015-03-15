@@ -360,8 +360,8 @@
                     (ref-set bin-turn 2r1000)
                     ))))))
     (case (dc/bin-winner @bin-board @bin-hands)
-      2r0000 (do (sc/alert "あっちの勝ち") init-state)
-      2r1000 (do (sc/alert "こっちの勝ち") init-state)
+      2r0000 (do (sc/alert "あっちの勝ち") (init-state))
+      2r1000 (do (sc/alert "こっちの勝ち") (init-state))
       -1 nil))
 
 (def canvas
