@@ -21,6 +21,8 @@
 
 ;; immutable
 
+(def img-size 256)
+
 (defn get-bias [can]
   (/ (sc/height can) 8))
 
@@ -65,7 +67,7 @@
 
 (defn draw-animal! [can g bw bh i j animal]
   (if (not= animal 0)
-    (let [img-size 283
+    (let [
           sx (+ (get-bias can) 1 (* (+ bw 1) j))
           sy (+                1 (* (+ bh 1) i))
           ex (+ (get-bias can) 1 (* (+ bw 1) j) bw)
@@ -75,7 +77,7 @@
 
 (defn draw-play-hands! [can g bw bh bbw bbh i animal]
   (if (not= animal 0)
-    (let [img-size 283
+    (let [
           sx (+ (get-bias can) 1 (* (+ bw 1) 3))
           ex (+ sx (get-bias can))
           sy (+ (* (+ bbh 1) (- 7 i)) 1)
@@ -85,7 +87,7 @@
 
 (defn draw-comp-hands! [can g bw bh bbw bbh i animal]
   (if (not= animal 0)
-    (let [img-size 283
+    (let [
           sx 0
           ex (get-bias can)
           sy (+ (* (+ bbh 1) i) 1)
@@ -377,7 +379,7 @@
 )
 
 (def canvas
-  (ref (let [c (sc/canvas :paint paint-event!)]
+  (ref (let [c (sc/canvas :paint paint-event! :background "#FFFFFF")]
     (sc/listen c :mouse-clicked canvas-clicked!)
     c)))
 
