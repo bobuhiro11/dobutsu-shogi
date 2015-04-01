@@ -340,6 +340,20 @@
                              (for [i (range 7)]
                                (bin-get-hands hands (* 3 i)))))]
             (+ board-value myhands yourhands)))))
+(defn evaluate2 [^long board ^long hands]
+  "return plus if turn 2r1000 is win."
+  (let [winner ^long (bin-winner board hands)
+        our-movable (filter
+                      (fn [[i j]]
+                        (not= 2r0000 (bin-get-cell board i j)))
+                     (apply concat
+                           (filter
+                             (fn [x] (and
+                                       (not (keyword? x))))
+                             (for [i (range height) j (range width)]
+                               (bin-movable board i j turn-b)))))
+        ]
+    our-movable))
 
 (defn bin-all-moves [^long board ^long hands ^long turn]
   "return {[2 1] ([1 1]), [3 1] ([2 2] [2 0]), [3 2] ([2 2]), [oldi oldj] ([ni nj] [ni nj])}
@@ -569,6 +583,8 @@
           bin-init-hands -10000 10001))
   (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 180-220 ms
   (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 180-220 ms
+  (time (evaluate bin-init-board bin-init-hands))
+  (time (evaluate2 bin-init-board bin-init-hands))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
   (println (bin-ai-negamx (board->binary test-board)
                           (->> 2r0
