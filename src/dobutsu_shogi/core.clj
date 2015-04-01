@@ -396,9 +396,7 @@
                     (find-children board hands (if (= color 1) turn-b turn-a))))))
 
 (defn negamax [board hands alpha beta color depth]
-  (cond (= 1 depth)
-        (* color (evaluate board hands))
-        (not= (bin-winner board hands) -1)
+  (cond (or (= 1 depth) (not= (bin-winner board hands) -1))
         (* color (evaluate board hands))
         :else
         (apply max
@@ -535,7 +533,7 @@
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
   (println (bin-all-moves 799070036736  (bin-add-hands bin-init-hands fowl 2r1000) 0))
   (bin-show-board 799070036736 )
-  (time (negamax bin-init-board bin-init-hands -10000 10001 1 7))
+  (time (negamax bin-init-board bin-init-hands -10000 10001 1 5))
   (time (negamax bin-init-board bin-init-hands -10000 10001 -1 7))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
   (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 180-220 ms
