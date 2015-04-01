@@ -282,6 +282,8 @@
   (let [pos   (mouse2cell      (.getSource e) (.getX e) (.getY e))
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
     ;(println "hands:" hands "pos:" pos)
+    ; (def bin-turn  (ref 2r1000))
+    (if (= @bin-turn 2r1000)
     (cond
       ;
       ; out of board
@@ -376,7 +378,7 @@
       (dosync (ref-set selected-cell  nil)
               (ref-set selected-hands nil)))
 )
-)
+))
 
 (def canvas
   (ref (let [c (sc/canvas :paint paint-event! :background "#FFFFFF")]

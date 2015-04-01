@@ -7,7 +7,7 @@
 
 (def height 4)
 (def width  3)
-(def negamax-depth  4)
+(def negamax-depth  3)
 
 (def bin-init-board 189874330207042)
 (def bin-init-hands 2r0)
