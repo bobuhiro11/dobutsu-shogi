@@ -16,7 +16,7 @@
 (def selected-hands (ref nil))
 
 (def bin-board (ref dc/bin-init-board))
-(def bin-turn  (ref 2r1000))
+(def bin-turn  (ref dc/turn-b))
 (def bin-hands (ref 2r000))
 
 ;; immutable
@@ -52,17 +52,17 @@
       i)))
 
 (defn bin-get-image [animal]
-  (let [prefix (if (= (bit-and animal 2r1000) 2r0000) "rot_" "")]
+  (let [prefix (if (= (bit-and animal 2r1000) dc/turn-a) "rot_" "")]
     (.getImage
       (ImageIcon.
         (clojure.java.io/resource
           (str prefix
-               (case (bit-and 2r111 animal)
-                 2r001 "chi"
-                 2r010 "gir"
-                 2r011 "ele"
-                 2r100 "lion"
-                 2r101 "for")
+               (condp = (bit-and 2r111 animal)
+                 dc/chick    "chi"
+                 dc/giraffe  "gir"
+                 dc/elephant "ele"
+                 dc/lion     "lion"
+                 dc/fowl     "for")
                ".png"))))))
 
 (defn draw-animal! [can g bw bh i j animal]
@@ -152,7 +152,7 @@
     (let [movables (dc/bin-movable
                      (long @bin-board)
                      (long (first @selected-cell))
-                     (long (second @selected-cell)) 2r1000)]
+                     (long (second @selected-cell)) dc/turn-b)]
       (draw-rect!
         can g bw bh
         (second @selected-cell)
@@ -211,27 +211,32 @@
   [coll pos]
   (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
 
-(defn init-state []
+(defn init-state [turn]
   (dosync
     (ref-set selected-cell  nil)
     (ref-set selected-hands nil)
-    (ref-set bin-turn       2r1000)
+    (ref-set bin-turn       turn)
     (ref-set bin-hands      2r000)
     (ref-set bin-board      dc/bin-init-board)))
 
-(defn newgame-clicked! [e]
-  (init-state))
+(defn newgame-first-clicked! [e]
+  (init-state dc/turn-b))
+
+(defn newgame-second-clicked! [e]
+  (init-state dc/turn-a))
 
 (defn start-cpu-thread []
   (.start (Thread.
             (fn []
               (loop []
-                (case (dc/bin-winner @bin-board @bin-hands)
-                  2r0000 (do (sc/alert "あっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
-                  2r1000 (do (sc/alert "こっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
-                  -1 nil)
-                (if (= @bin-turn 2r0000)
-                  (let [mov (dc/bin-ai-negamx @bin-board @bin-hands 2r0000)]
+                (if (or (= @bin-turn dc/turn-a)
+                        (= @bin-turn dc/turn-b))
+                  (condp = (dc/bin-winner @bin-board @bin-hands)
+                    dc/turn-a (do (dosync (ref-set bin-turn 2r1111)) (sc/alert "あっちの勝ち"))
+                    dc/turn-b (do (dosync (ref-set bin-turn 2r1111)) (sc/alert "こっちの勝ち"))
+                    -1 nil))
+                (if (= @bin-turn dc/turn-a)
+                  (let [mov (dc/bin-ai-negamx @bin-board @bin-hands dc/turn-a)]
                     (if (= (first mov) :move)
                       ;; move
                       (let [move-result
@@ -241,7 +246,7 @@
                                (long (second (nth mov 1)))]
                               [(long (first  (nth mov 2)))
                                (long (second (nth mov 2)))]
-                              2r0000)]
+                              dc/turn-a)]
                         (dosync
                           (ref-set bin-board
                                    (:board move-result))
@@ -251,8 +256,8 @@
                                      (dc/bin-add-hands
                                        @bin-hands
                                        (:get move-result)
-                                       2r0000)))
-                          (ref-set bin-turn 2r1000))
+                                       dc/turn-a)))
+                          (ref-set bin-turn dc/turn-b))
                         (println "evaluation value: "
                                  (dc/evaluate @bin-board @bin-hands)))
                       ;; put
@@ -264,7 +269,7 @@
                                      (long (dc/bin-get-hands
                                              @bin-hands
                                              (long (* (second mov) 3))))
-                                     2r0000)
+                                     dc/turn-a)
                                    )]
                         (dosync (ref-set bin-board newb)
                                 (ref-set bin-hands
@@ -272,7 +277,7 @@
                                            @bin-hands
                                            (long (* (second mov) 3))
                                            2r000))
-                                (ref-set bin-turn 2r1000)
+                                (ref-set bin-turn dc/turn-b)
                                 )
                         (println "evaluation value: "
                                  (dc/evaluate @bin-board @bin-hands))))))
@@ -283,7 +288,7 @@
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
     ;(println "hands:" hands "pos:" pos)
     ; (def bin-turn  (ref 2r1000))
-    (if (= @bin-turn 2r1000)
+    (if (= @bin-turn dc/turn-b)
     (cond
       ;
       ; out of board
@@ -324,7 +329,7 @@
                        (dc/bin-get-hands
                          @bin-hands
                          (long (+ 21 (* @selected-hands 3)))))
-                     2r1000)
+                     dc/turn-b)
                    )]
         (dosync (ref-set bin-board newb)
                 (ref-set bin-hands
@@ -332,7 +337,7 @@
                            @bin-hands
                            (long (+ 21 (* @selected-hands 3)))
                            2r000))
-                (ref-set bin-turn 2r0000)
+                (ref-set bin-turn dc/turn-a)
                 (ref-set selected-hands nil))
         (println "evaluation value: "
                  (dc/evaluate @bin-board @bin-hands)))
@@ -345,7 +350,7 @@
           (dc/bin-movable @bin-board
                           (long (first  @selected-cell))
                           (long (second @selected-cell))
-                          2r1000))
+                          dc/turn-b))
         pos)
       (let [move-result
             (dc/bin-move @bin-board
@@ -353,7 +358,7 @@
                           (long (second @selected-cell))]
                          [(long (first  pos))
                           (long (second pos))]
-                         2r1000)]
+                         dc/turn-b)]
         (dosync
           (ref-set bin-board (:board move-result))
           (ref-set bin-hands
@@ -361,8 +366,8 @@
                      @bin-hands
                      (dc/bin-add-hands @bin-hands
                                        (:get move-result)
-                                       2r1000)))
-          (ref-set bin-turn 2r0000)
+                                       dc/turn-b)))
+          (ref-set bin-turn dc/turn-a)
           (ref-set selected-cell nil))
         (println "evaluation value: "
                  (dc/evaluate @bin-board @bin-hands)))
@@ -371,7 +376,7 @@
                                   (long (first  pos))
                                   (long (second pos)))]
         (and (not= cell 0)
-             (= 2r1000 (bit-and cell 2r1000))))
+             (= dc/turn-b (bit-and cell 2r1000))))
       (dosync (ref-set selected-cell  pos)
               (ref-set selected-hands nil))
       :else
@@ -397,9 +402,14 @@
       :items
       [(sc/menu
          :text  "File"
-         :items [(sc/action :name    "New Game"
+         :items [
+                 (sc/action :name    "新規ゲーム（先攻）"
                             :key     "menu N"
-                            :handler newgame-clicked!)])
+                            :handler newgame-first-clicked!)
+                 (sc/action :name    "新規ゲーム（後攻）"
+                            :key     "menu M"
+                            :handler newgame-second-clicked!)
+                 ])
        (sc/menu
          :text "Edit"
          :items [])])))
