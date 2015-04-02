@@ -340,6 +340,7 @@
                              (for [i (range 7)]
                                (bin-get-hands hands (* 3 i)))))]
             (+ board-value myhands yourhands)))))
+
 (defn evaluate2 [^long board ^long hands]
   "return plus if turn 2r1000 is win."
   (let [winner ^long (bin-winner board hands)

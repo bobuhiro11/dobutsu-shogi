@@ -211,25 +211,30 @@
   [coll pos]
   (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
 
-(defn init-state []
+(defn init-state [turn]
   (dosync
     (ref-set selected-cell  nil)
     (ref-set selected-hands nil)
-    (ref-set bin-turn       dc/turn-b)
+    (ref-set bin-turn       turn)
     (ref-set bin-hands      2r000)
     (ref-set bin-board      dc/bin-init-board)))
 
-(defn newgame-clicked! [e]
-  (init-state))
+(defn newgame-first-clicked! [e]
+  (init-state dc/turn-b))
+
+(defn newgame-second-clicked! [e]
+  (init-state dc/turn-a))
 
 (defn start-cpu-thread []
   (.start (Thread.
             (fn []
               (loop []
-                (condp = (dc/bin-winner @bin-board @bin-hands)
-                  dc/turn-a (do (sc/alert "あっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
-                  dc/turn-b (do (sc/alert "こっちの勝ち") (init-state) (dosync (ref-set bin-turn 2r1000)))
-                  -1 nil)
+                (if (or (= @bin-turn dc/turn-a)
+                        (= @bin-turn dc/turn-b))
+                  (condp = (dc/bin-winner @bin-board @bin-hands)
+                    dc/turn-a (do (dosync (ref-set bin-turn 2r1111)) (sc/alert "あっちの勝ち"))
+                    dc/turn-b (do (dosync (ref-set bin-turn 2r1111)) (sc/alert "こっちの勝ち"))
+                    -1 nil))
                 (if (= @bin-turn dc/turn-a)
                   (let [mov (dc/bin-ai-negamx @bin-board @bin-hands dc/turn-a)]
                     (if (= (first mov) :move)
@@ -397,9 +402,14 @@
       :items
       [(sc/menu
          :text  "File"
-         :items [(sc/action :name    "New Game"
+         :items [
+                 (sc/action :name    "新規ゲーム（先攻）"
                             :key     "menu N"
-                            :handler newgame-clicked!)])
+                            :handler newgame-first-clicked!)
+                 (sc/action :name    "新規ゲーム（後攻）"
+                            :key     "menu M"
+                            :handler newgame-second-clicked!)
+                 ])
        (sc/menu
          :text "Edit"
          :items [])])))
