@@ -65,7 +65,7 @@
                  dc/fowl     "for")
                ".png"))))))
 
-(defn draw-animal! [can g bw bh i j animal]
+(defn draw-animal! [can ^java.awt.Graphics g bw bh i j animal]
   (if (not= animal 0)
     (let [
           sx (+ (get-bias can) 1 (* (+ bw 1) j))
@@ -75,7 +75,7 @@
           img (bin-get-image animal)]
       (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
-(defn draw-play-hands! [can g bw bh bbw bbh i animal]
+(defn draw-play-hands! [can ^java.awt.Graphics g bw bh bbw bbh i animal]
   (if (not= animal 0)
     (let [
           sx (+ (get-bias can) 1 (* (+ bw 1) 3))
@@ -85,7 +85,7 @@
           img (bin-get-image (bit-or 2r1000 animal))]
       (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
-(defn draw-comp-hands! [can g bw bh bbw bbh i animal]
+(defn draw-comp-hands! [can ^java.awt.Graphics g bw bh bbw bbh i animal]
   (if (not= animal 0)
     (let [
           sx 0
@@ -95,7 +95,7 @@
           img (bin-get-image animal)]
       (.drawImage g img sx sy ex ey 0 0 img-size img-size can))))
 
-(defn draw-animals! [can g bw bh bbw bbh]
+(defn draw-animals! [can ^java.awt.Graphics g bw bh bbw bbh]
   (doall (for [i (range 4) j (range 3)]
            (draw-animal! can g bw bh i j (dc/bin-get-cell @bin-board i j))))
   (doall (map (fn [i]
@@ -109,7 +109,7 @@
                                                     (* 3 i))))
               (range 7))))
 
-(defn draw-rect! [can g bw bh i j status]
+(defn draw-rect! [can ^java.awt.Graphics2D g bw bh i j status]
   (let [lw 3 ; line-width
         old-stroke (.getStroke g)
         old-color (.getColor g)
@@ -129,7 +129,7 @@
     (.setColor  g old-color)
     (.setStroke g old-stroke)))
 
-(defn draw-hand-rect! [can g bw bbh i]
+(defn draw-hand-rect! [can ^java.awt.Graphics2D g bw bbh i]
   (let [lw 3 ; line-width
         old-stroke (.getStroke g)
         old-color (.getColor g)
@@ -147,7 +147,7 @@
     (.setColor  g old-color)
     (.setStroke g old-stroke)))
 
-(defn draw-frame! [can g bw bh]
+(defn draw-frame! [can ^java.awt.Graphics g bw bh]
   (if @selected-cell
     (let [movables (dc/bin-movable
                      (long @bin-board)
@@ -177,7 +177,7 @@
                                                    (first %) (second %)))
                             (for [i (range 4) j (range 3)] [i j]))))))
 
-(defn paint-event! [can g]
+(defn paint-event! [can ^java.awt.Graphics g]
   (let [w (get-board-width  can)
         h  (sc/height can)
         bw  (get-block-width can)
@@ -283,7 +283,7 @@
                                  (dc/evaluate @bin-board @bin-hands))))))
                 (recur))))))
 
-(defn canvas-clicked! [e]
+(defn canvas-clicked! [^java.awt.event.MouseEvent e]
   (let [pos   (mouse2cell      (.getSource e) (.getX e) (.getY e))
         hands (mouse2playhands (.getSource e) (.getX e) (.getY e))]
     ;(println "hands:" hands "pos:" pos)
@@ -415,7 +415,7 @@
          :items [])])))
 
 (defn show-frame! [on-close]
-  (let [frame (make-frame on-close)]
+  (let [frame ^javax.swing.JFrame (make-frame on-close)]
     (st/timer (fn [_] (.repaint frame))
               :start?        true
               :initial-delay 1000

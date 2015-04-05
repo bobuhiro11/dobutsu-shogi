@@ -3,23 +3,21 @@
   (:use [clojure.repl]
         [clojure.tools.trace]))
 
-(set! *warn-on-reflection* true)
+(def ^:const height 4)
+(def ^:const width  3)
+(def ^:const negamax-depth  4)
 
-(def height 4)
-(def width  3)
-(def negamax-depth  4)
+(def ^:const bin-init-board 189874330207042)
+(def ^:const bin-init-hands 2r0)
 
-(def bin-init-board 189874330207042)
-(def bin-init-hands 2r0)
+(def ^:const chick    2r001)
+(def ^:const giraffe  2r010)
+(def ^:const elephant 2r011)
+(def ^:const lion     2r100)
+(def ^:const fowl     2r101)
 
-(def chick    2r001)
-(def giraffe  2r010)
-(def elephant 2r011)
-(def lion     2r100)
-(def fowl     2r101)
-
-(def turn-a 2r0000)
-(def turn-b 2r1000)
+(def ^:const turn-a 2r0000)
+(def ^:const turn-b 2r1000)
 
 (def bin-animals
   "movable direction [i,j]"
@@ -375,18 +373,18 @@
 (defn find-children [^long hands ^long turn ^long board]
   (let [all-moves (bin-all-moves board hands turn)
         all-hand-indexs (bin-hand-indexs board hands turn)
-        moves-result (mapcat (fn [[old v]]
-                               (filter (fn [x] (not (nil? x)))
-                                       (map (fn [new]
-                                              (let [result (bin-move board old new turn)]
-                                                (if (= result false)
-                                                  nil
-                                                  (if (= (:get result) 0)
-                                                    [(:board result) hands]
-                                                    [(:board result) (bin-add-hands hands (:get result) turn)]
-                                                    ))))
-                                            v))
-                               ) all-moves)
+        moves-result
+        (->> all-moves
+             (mapcat (fn [[old v]]
+                       (->> v
+                            (map (fn [new]
+                                   (let [result (bin-move board old new turn)]
+                                     (if (= result false)
+                                       nil
+                                       (if (= (:get result) 0)
+                                         [(:board result) hands]
+                                         [(:board result) (bin-add-hands hands (:get result) turn)])))))
+                            (filter (fn [x] (not (nil? x))))))))
         puts-result
         (apply concat
                (for [i (range 4) j (range 3)]
@@ -577,13 +575,13 @@
   (bin-show-board 799070036736 )
   (time (negamax bin-init-board bin-init-hands -10000 10001 1 negamax-depth))
   (time (negamax bin-init-board bin-init-hands -10000 10001 -1 negamax-depth))
-  (time (negamax3 
+  (time (negamax3
           (bit-or bin-init-board
                   (bit-shift-left 1 48)
                   (bit-shift-left negamax-depth 49))
           bin-init-hands -10000 10001))
-  (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 180-220 ms
-  (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 180-220 ms
+  (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 50-70 ms
+  (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 50-70 ms
   (time (evaluate bin-init-board bin-init-hands))
   (time (evaluate2 bin-init-board bin-init-hands))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
@@ -594,7 +592,7 @@
                           2r1000))
   (println (bin-get-cell bin-init-board 2 1))
   (bin-all-moves bin-init-board bin-init-hands 2r1000)
-  (time (println (find-children bin-init-hands 2r1000 bin-init-board)))
+  (time (println (find-children bin-init-hands 2r1000 bin-init-board))) ; 1 ms
   (println (find-children
              (-> 2r000
                  (bin-add-hands chick 2r1000)
