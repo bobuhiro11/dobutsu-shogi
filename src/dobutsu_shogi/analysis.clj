@@ -14,7 +14,9 @@
 
 (defn abin-add-hand [^long abin ^long animal ^long belong]
   "解析局面 abin にどうぶつ animal を belong の持コマとして追加する
-  abin, animal, belong は解析ソフトと統一"
+  abin, animal, belong は解析ソフトと統一
+  belongは 1が手番, 2が手番ではない
+  "
   (let [offset
         (condp = (bit-and animal 2r111)
           dc/chick    48
@@ -30,14 +32,17 @@
               (bit-shift-left (bit-and belong 2r11)
                               (+ offset 2))))))
 
-(defn bin->abin [^long board ^long hands]
-  "core.clj で定義された局面 board と持コマ hands から
+(defn bin->abin [^long board ^long hands ^long turn]
+  "core.clj で定義された局面 board と持コマ hands ，そして turn から
   解析局面 abin に変換（正規化済）
   "
-  (let [your-hands (for [i (range 7)]
-                     (dc/bin-get-hands hands (* 3 i)))
+  (let [
+        your-offset (if (= turn 2r1000) 0 21)
+        my-offset   (if (= turn 2r1000) 21 0)
+        your-hands (for [i (range 7)]
+                     (dc/bin-get-hands hands (+ your-offset (* 3 i))))
         my-hands (for [i (range 7)]
-                   (dc/bin-get-hands hands (+ 21 (* 3 i))))
+                   (dc/bin-get-hands hands (+ my-offset (* 3 i))))
         my-kirin-num    (count (filter #(= % dc/giraffe)   my-hands))
         my-hiyoko-num   (count (filter #(= % dc/chick)     my-hands))
         my-zou-num      (count (filter #(= % dc/elephant)  my-hands))
@@ -59,16 +64,14 @@
                     (let [cell (dc/bin-get-cell board i j)]
                       (if (= cell 2r0000)
                         cell
-                        (bit-xor cell 2r1000)))
+                        (bit-xor cell turn)))
                     (* 4 (+ (* dc/width (- dc/height i 1)) (- dc/width j 1))))))
         reverse-board
         (reduce bit-or
                 (for [i (range dc/height) j (range dc/width)]
                   (bit-shift-left
                     (let [cell (dc/bin-get-cell board i (- dc/width j 1))]
-                      (if (= cell 2r0000)
-                        cell
-                        (bit-xor cell 2r1000)))
+                      cell)
                     (* 4 (+ (* dc/width (- dc/height i 1)) (- dc/width j 1))))))
         ]
     (->
@@ -140,7 +143,9 @@
               arr))))
 
 (defn get-index [^long abin]
-  "解析局面 abin のファイル内でのインデックスを求める"
+  "解析局面 abin のファイル内でのインデックスを求める
+  見つからなければ，-1を返す
+  "
   (with-open [file (RandomAccessFile. "/Users/bobuhiro11/all-state_sorted.dat" "r")]
     ;(println "abin=" abin)
     (loop [_min 0 _max 246803166]
@@ -157,9 +162,16 @@
                   (recur _min (- mid 1)))))))))
 
 (defn get-next-abin [^long abin]
+  "次の解析局面 abin を返す
+  見つからなければ，-1を返す"
   (let [index (get-index abin)]
-    (with-open [file (RandomAccessFile. "/Users/bobuhiro11/next_state.dat" "r")]
-      (get-value file index))))
+    (if (= index -1)
+      -1
+      (let [v (with-open [file (RandomAccessFile. "/Users/bobuhiro11/next_state.dat" "r")]
+               (get-value file index))]
+        (if (= v 0)
+          -1
+          v)))))
 
 (defn get-hand-num [^long abin animal belong]
   (let [offset (condp = animal
@@ -177,24 +189,104 @@
           :else
           0)))
 
-(Long/toHexString (bin->abin dc/bin-init-board
-                             (-> 2r000
-                                 (dc/bin-add-hands dc/chick 2r1000)
-                                 (dc/bin-add-hands dc/fowl 2r0000)
-                                 (dc/bin-add-hands dc/elephant 2r1000)
-                                 (dc/bin-add-hands dc/giraffe  2r1000)
-                                 (dc/bin-add-hands dc/giraffe  2r1000)
-                                 (dc/bin-add-hands dc/elephant 2r0000)
-                                 )))
-(abin->bin (bin->abin dc/bin-init-board
-                      (-> 2r000
-                          (dc/bin-add-hands dc/chick 2r1000)
-                          (dc/bin-add-hands dc/fowl 2r0000)
-                          (dc/bin-add-hands dc/elephant 2r1000)
-                          (dc/bin-add-hands dc/giraffe  2r1000)
-                          (dc/bin-add-hands dc/giraffe  2r1000)
-                          (dc/bin-add-hands dc/elephant 2r0000)
-                          )))
+(defn show-abin [^long abin]
+  (let [r (abin->bin abin)]
+    (dc/bin-show-board (:board r))
+    (dc/bin-show-hands (:hands r))))
+
+(defn show-binmap [_map]
+    (dc/bin-show-board (:board _map))
+    (dc/bin-show-hands (:hands _map)))
+
+(defn bin-get-next [^long board ^long hands ^long turn]
+  "次の局面 board と hands を返す．
+  ただし，データがない場合は-1を返す（最後の一手などは自明なため）"
+  (let [abin (if (= turn 2r0000)
+               (bin->abin board hands)
+               (let [r (dc/bin-get-reverse board hands)]
+                 (bin->abin (:board r) (:hands r))))
+        abin  (bin->abin board hands)
+        na (get-next-abin abin)]
+    (if (= na -1)
+      -1
+      (if (= turn 2r0000)
+        (abin->bin na)
+        (dc/bin-get-reverse (:board (abin->bin na))
+                            (:hands (abin->bin na))
+                            )))))
+
+(show-binmap (bin-get-next dc/bin-init-board 2r0 2r1000))
+(show-binmap (bin-get-next dc/bin-init-board 2r0 2r0000))
+
+(defn bin-ai-victory [^long board ^long hands ^long turn]
+  "bin-ai-randomやbin-ai-negamx同様の機能を持ち，
+  必勝パターンを返す．
+  ただし，データがない場合は bin-ai-negamax を使う．"
+  (let [n (bin-get-next board hands turn)]
+    (if (= n -1)
+      (dc/bin-ai-negamx board hands turn)
+      (let [
+            all-moves (dc/bin-all-moves board hands turn)
+            all-hand-indexs (dc/bin-hand-indexs board hands turn)
+            next-board (:board n)
+            next-hands (:hands n)
+            next-abin (bin->abin next-board next-hands)
+            move-result
+            (mapcat (fn [[old v]]
+                      (map (fn [new]
+                             (let [result (dc/bin-move board old new turn)]
+                               (if (= (:get result) 0)
+                                 [:move old new 1000 (bin->abin (:board result) hands)]
+                                 [:move old new 1000 (bin->abin (:board result) (dc/bin-add-hands hands (:get result) turn))]
+                                 )
+                               ))
+                           v))
+                    all-moves)
+            put-result
+            (apply concat
+                   (for [i (range dc/height) j (range dc/width)]
+                     (if (= 2r0000 (dc/bin-get-cell board i j))
+                       (map (fn [index]
+                              [:put index [i j]
+                               1000
+                               (dc/bin-set-cell
+                                 board i j
+                                 (bin->abin
+                                 (dc/bin-get-hands hands
+                                                   (+ (* 3 index)
+                                                      (if (= turn dc/turn-b) 21 0))))
+                               (dc/bin-set-hands hands
+                                                 (+ (* 3 index)
+                                                    (if (= turn dc/turn-b) 21 0))
+                                                 2r000))
+                               ]
+                              )
+                            all-hand-indexs))))
+            move-candidacy
+            (filter (fn [v]
+                      (and (= (nth v 4) next-abin)))
+                    move-result)
+            put-candidacy
+            (filter (fn [v]
+                      (and (= (nth v 3) next-abin)))
+                    put-result)
+            ]
+        (println "next-abin:")
+        (show-abin next-abin)
+        (println "move-result" move-result)
+        (println "put-result" put-result)
+        (println "move-candidacy:" move-candidacy)
+        (println "put-candidacy:" put-candidacy)
+        (if (>= (count move-candidacy) 1)
+          (drop-last 1 (first move-candidacy))
+          (drop-last 1 (first put-candidacy))
+          )))))
+
+(def test-board 801481229122)
+(dc/bin-show-board test-board)
+(dc/bin-show-board (:board (bin-get-next test-board 2r0 2r0000)))
+(bin-ai-victory test-board 2r0 2r0000)
+(bin-ai-victory dc/bin-init-board 2r0 2r0000)
 
 (abin-index 1 1)
 (println dc/bin-init-board)
@@ -219,7 +311,7 @@
   (dc/bin-show-board init-board)
   (dc/bin-show-hands init-hand)
   (println "-----")
-  ((get-index (bin->abin dc/bin-init-board 2r000)idc/bin-show-board trans-board)
+  (dc/bin-show-board trans-board)
   (dc/bin-show-hands trans-hand)
   )
 

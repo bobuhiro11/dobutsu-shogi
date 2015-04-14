@@ -1,5 +1,7 @@
 (ns dobutsu-shogi.core
   (:gen-class)
+  (:require
+            [dobutsu-shogi.analysis :as da])
   (:use [clojure.repl]
         [clojure.tools.trace]))
 
@@ -217,6 +219,7 @@
     (flush)))
 
 (defn bin-show-board [^long board]
+  (println "board=" board)
   (doall (for [^long i (range height)]
            (do (doall (for [^long j (range width)]
                         (let [cell ^long (bin-get-cell board i j)]
@@ -488,8 +491,11 @@
                   (println "                     WINNER:" (bin-winner board hands))
                   :else
                   (let [ai-result (if (= human-turn turn)
-                                    (bin-ai-negamx board hands turn)
-                                    (bin-ai-random board hands turn))]
+                                    (da/bin-ai-victory board hands turn)
+                                    (bin-ai-random board hands turn)
+                                    ;(bin-ai-negamx board hands turn)
+                                    )]
+                    (println "ai-result: " ai-result)
                     (if (= (first ai-result) :move)
                       ;;;; move
                       (let [
@@ -535,10 +541,6 @@
 
 (comment
   (time (bin-movable bin-init-board 3 1 2r1000)) ; [2 2] [2 0]
-  (time (game 2r1000))
-  (time (game 2r1000))
-  (time (game 2r1000))
-  (time (game 2r1000))
   (time (game 2r0000))
   (bin-show-hands 0)
   (bin-show-board 1)
@@ -597,6 +599,7 @@
           bin-init-hands -10000 10001))
   (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 50-70 ms
   (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 50-70 ms
+  (time (da/bin-ai-victory bin-init-board 2r0 2r0000)) ;
   (time (evaluate bin-init-board bin-init-hands))
   (time (evaluate2 bin-init-board bin-init-hands))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
