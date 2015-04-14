@@ -518,6 +518,21 @@
                     )))]
     (game1 bin-init-board 2r0 2r0000 0)))
 
+(defn bin-get-reverse [^long board ^long hands]
+  {:board
+  (reduce bit-or
+          (for [i (range height) j (range width)]
+            (bit-shift-left
+              (let [cell (bin-get-cell board (- height i 1) (- width j 1))]
+                (if (= cell 0)
+                  cell
+                  (bit-xor cell 2r1000)))
+              (* 4 (+ (* width i) j)))))
+   :hands
+   (bit-or
+     (bit-and (bit-shift-right hands 21) 0x1FFFFF)
+     (bit-and (bit-shift-left  hands 21) 0x2FFFE0000))})
+
 (comment
   (time (bin-movable bin-init-board 3 1 2r1000)) ; [2 2] [2 0]
   (time (game 2r1000))
@@ -602,4 +617,27 @@
                  )
              2r1000
              bin-init-board
-             )))
+             ))
+(let [init-board
+      (bin-set-cell bin-init-board 1 2 (bit-or 2r1000 giraffe))
+      init-hand
+      (-> 2r000
+          (bin-add-hands chick 2r1000)
+          (bin-add-hands fowl 2r0000)
+          (bin-add-hands elephant 2r1000)
+          (bin-add-hands giraffe  2r1000)
+          (bin-add-hands giraffe  2r1000)
+          (bin-add-hands elephant 2r0000)
+          )
+      trans-board
+      (:board (bin-get-reverse init-board init-hand))
+      trans-hand
+      (:hands (bin-get-reverse init-board init-hand))
+      ]
+  (bin-show-board init-board)
+  (bin-show-hands init-hand)
+  (println "-----")
+  (bin-show-board trans-board)
+  (bin-show-hands trans-hand)
+  )
+  )
