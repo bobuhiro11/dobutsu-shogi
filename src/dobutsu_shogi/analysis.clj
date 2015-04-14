@@ -9,7 +9,8 @@
   (:import  [javax.swing ImageIcon JLabel]
            [javax.swing ImageIcon JButton]
            [java.awt Image BasicStroke Color]
-           [java.awt.geom AffineTransform]))
+           [java.awt.geom AffineTransform]
+           [java.io RandomAccessFile]))
 
 (defn abin-add-hand [^long abin ^long animal ^long belong]
   "解析局面 abin にどうぶつ animal を belong の持コマとして追加する
@@ -127,6 +128,39 @@
          ))
    })
 
+(defn get-value [^RandomAccessFile file idx]
+  (reduce +
+          (map-indexed
+            (fn [i x]
+              (bit-shift-left (bit-and x 0xff) (* 8 i)))
+            (let [arr (byte-array 8)
+                  offset (* idx 8)]
+              (.seek file offset)
+              (.readFully file arr 0 8)
+              arr))))
+
+(defn get-index [^long abin]
+  "解析局面 abin のファイル内でのインデックスを求める"
+  (with-open [file (RandomAccessFile. "/Users/bobuhiro11/all-state_sorted.dat" "r")]
+    ;(println "abin=" abin)
+    (loop [_min 0 _max 246803166]
+      (if (> _min _max)
+        -1 ;; not found
+        (let [mid (quot (+ _min _max) 2)]
+          (let [x (get-value file mid)]
+            ;(println "min=" _min ", max=" _max ", mid=" mid, ", x=" x)
+            (cond (= abin x)
+                  mid
+                  (> abin x)
+                  (recur (+ mid 1) _max)
+                  (< abin x)
+                  (recur _min (- mid 1)))))))))
+
+(defn get-next-abin [^long abin]
+  (let [index (get-index abin)]
+    (with-open [file (RandomAccessFile. "/Users/bobuhiro11/next_state.dat" "r")]
+      (get-value file index))))
+
 (defn get-hand-num [^long abin animal belong]
   (let [offset (condp = animal
                  dc/chick    48
@@ -167,9 +201,8 @@
 (dc/bin-show-board dc/bin-init-board)
 (dc/bin-show-board (:board (abin->bin
                              (bin->abin dc/bin-init-board 2r000))))
-
 (let [init-board dc/bin-init-board
-      init-hand  
+      init-hand
       (-> 2r000
           (dc/bin-add-hands dc/chick 2r1000)
           (dc/bin-add-hands dc/fowl 2r0000)
@@ -186,6 +219,11 @@
   (dc/bin-show-board init-board)
   (dc/bin-show-hands init-hand)
   (println "-----")
-  (dc/bin-show-board trans-board)
+  ((get-index (bin->abin dc/bin-init-board 2r000)idc/bin-show-board trans-board)
   (dc/bin-show-hands trans-hand)
   )
+
+(get-index (bin->abin dc/bin-init-board 2r000))
+(with-open [file (RandomAccessFile. "/Users/bobuhiro11/all-state_sorted.dat" "r")]
+  (get-value file 246803166))
+(dc/bin-show-board (:board (abin->bin (get-next-abin (get-next-abin (bin->abin dc/bin-init-board 2r000))))))
