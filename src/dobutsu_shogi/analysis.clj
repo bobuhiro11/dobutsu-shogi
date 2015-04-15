@@ -38,10 +38,15 @@
        (bin->abin dc/bin-init-board 2r0 2r1000)
        (bin->abin dc/bin-init-board 2r0 2r0000))
     (= 0x0000acb090410302       ;; 初期局面からライオンがゾウの前に出た局面
-       (bin->abin 189874334401282 2r0 2r0000))))
+       (bin->abin 189874334401282 2r0 2r0000))
+    (= 13232964219907
+       (bin->abin 211907572146240 0 2r0000))
+    ))
+
 (test-bin->abin)
 
 (dc/bin-show-board 189874334401282)
+(bin->abin 189118969807618 2097152 2r1000)
 
 (defn bin->abin [^long board ^long hands ^long turn]
   "core.clj で定義された局面 board と持コマ hands ，そして turn から
@@ -180,11 +185,15 @@
           :else
           0)))
 
-(defn test-bin-ai-vicotry []
+(defn tes-bin-ai-vicotry []
   (and (not (empty? (bin-ai-victory dc/bin-init-board 2r0 2r0000)))
        ))
 
-(test-bin-ai-vicotry)
+(tes-bin-ai-vicotry)
+;(bin-ai-victory 189118969807618 2097152 2r1000)
+(bin-ai-victory 189187672245058  2097152 2r1000)
+
+(dc/game 2r1000 bin-ai-victory dc/bin-ai-negamx)
 
 (defn bin-ai-victory [^long board ^long hands ^long turn]
   "bin-ai-randomやbin-ai-negamx同様の機能を持ち，
@@ -218,9 +227,10 @@
                                1000
                                (dc/bin-set-cell
                                  board i j
-                                 (dc/bin-get-hands hands
-                                                   (+ (* 3 index)
-                                                      (if (= turn dc/turn-b) 21 0))))
+                                 (bit-or turn
+                                         (dc/bin-get-hands hands
+                                                           (+ (* 3 index)
+                                                              (if (= turn dc/turn-b) 21 0)))))
                                (dc/bin-set-hands hands
                                                  (+ (* 3 index)
                                                     (if (= turn dc/turn-b) 21 0))
@@ -235,16 +245,19 @@
                     move-result)
             put-candidacy
             (filter (fn [v]
-                      (let [nv (bin->abin (nth v 3)  (nth v 4) (bit-xor turn 2r1000))]
+                      (let [nv (bin->abin (nth v 4)  (nth v 5) (bit-xor turn 2r1000))]
                         (do (println "next-abin候補:" nv) (= nv next-abin))))
                     put-result)
             ]
-        (println "next-abin:")
-        (println  next-abin)
+        (println "board" board)
+        (println "hands" hands)
+        (println "turn" turn)
+        (println "abin:" abin)
+        (println "next-abin:" next-abin)
         (println "move-result" move-result)
         (println "put-result" put-result)
-        (println "move-candidacy:" move-candidacy)
-        (println "put-candidacy:" put-candidacy)
+        ;(println "move-candidacy:" move-candidacy)
+        ;(println "put-candidacy:" put-candidacy)
         (if (>= (count move-candidacy) 1)
           (drop-last 2 (first move-candidacy))
           (drop-last 2 (first put-candidacy))

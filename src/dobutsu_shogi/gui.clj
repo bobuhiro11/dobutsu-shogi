@@ -5,6 +5,7 @@
             [seesaw.graphics :as sg]
             [seesaw.timer :as st]
             [clojure.stacktrace :as cs]
+            [dobutsu-shogi.analysis :as da]
             [dobutsu-shogi.core :as dc])
   (:import  [javax.swing ImageIcon JLabel]
             [javax.swing ImageIcon JButton]
@@ -236,7 +237,11 @@
                     dc/turn-b (do (dosync (ref-set bin-turn 2r1111)) (sc/alert "こっちの勝ち"))
                     -1 nil))
                 (if (= @bin-turn dc/turn-a)
-                  (let [mov (dc/bin-ai-negamx @bin-board @bin-hands dc/turn-a)]
+                  (let [mov
+                        ;(dc/bin-ai-negamx @bin-board @bin-hands dc/turn-a)
+                        (da/bin-ai-victory @bin-board @bin-hands dc/turn-a)
+                        ]
+                    (println "mov:" mov)
                     (if (= (first mov) :move)
                       ;; move
                       (let [move-result

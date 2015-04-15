@@ -1,7 +1,7 @@
 (ns dobutsu-shogi.core
   (:gen-class)
-  (:require
-            [dobutsu-shogi.analysis :as da])
+  ;(:require
+  ;          [dobutsu-shogi.analysis :as da])
   (:use [clojure.repl]
         [clojure.tools.trace]))
 
@@ -476,55 +476,56 @@
     (last (sort-by (fn [[op old new value]] value)
                    (concat puts-result result)))))
 
-(defn game [^long human-turn]
-  (letfn [(game1 [^long board
-                  ^long hands
-                  ^long turn
-                  ^long n ]
-            (println "--------------------------------------")
-            (println "                     TURN: " (bit-and turn 2r1000) "(" n ")")
-            (bin-show-board board)
-            (println)
-            (bin-show-hands hands)
-            (cond (> n 50)
-                  (println "                     END")
-                  (not= -1 (bin-winner board hands))
-                  (println "                     WINNER:" (bin-winner board hands))
-                  :else
-                  (let [ai-result (if (= human-turn turn)
-                                    (da/bin-ai-victory board hands turn)
-                                    (bin-ai-random board hands turn)
-                                    ;(bin-ai-random board hands turn)
-                                    ;(bin-ai-negamx board hands turn)
-                                    )]
-                    (println "ai-result: " ai-result)
-                    (if (= (first ai-result) :move)
-                      ;;;; move
-                      (let [
-                            move-pos (rest ai-result)
-                            result (bin-move board (first move-pos) (second move-pos) turn)
-                            new-board (long (:board result))
-                            new-hands (long (if (:get result)
-                                              (bin-add-hands hands (:get result) turn)
-                                              hands))]
-                        (println "                     move from" (first move-pos) "to" (second move-pos) " evaluate value:" (second (rest move-pos)))
-                        (println)
-                        (recur new-board new-hands (bit-xor turn turn-b) (inc n)))
-                      ;;;; put
-                      (let [
-                            put-pos (rest ai-result)
-                            index (first put-pos)
-                            [i j]  (second put-pos)
-                            value (second (rest put-pos))
-                            new-board (long (bin-set-cell board i j (bin-get-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)))))
-                            new-hands (long (bin-set-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)) 2r000))
-                            ]
-                        (println "                     put from" index "to" [i j] " evaluate value:" value)
-                        (println)
-                        (recur new-board new-hands (bit-xor turn turn-b) (inc n)))
-                      )
-                    )))]
-    (game1 bin-init-board 2r0 2r0000 0)))
+(defn game
+  ([^long human-turn]
+   (game human-turn bin-ai-negamx bin-ai-random))
+  ([^long human-turn ai1 ai2]
+   (letfn [(game1 [^long board
+                   ^long hands
+                   ^long turn
+                   ^long n ]
+             (println "--------------------------------------")
+             (println "                     TURN: " (bit-and turn 2r1000) "(" n ")")
+             (bin-show-board board)
+             (println)
+             (bin-show-hands hands)
+             (cond (> n 100)
+                   (println "                     END")
+                   (not= -1 (bin-winner board hands))
+                   (println "                     WINNER:" (bin-winner board hands))
+                   :else
+                   (let [ai-result (if (= human-turn turn)
+                                     (ai1 board hands turn)
+                                     (ai2 board hands turn)
+                                     )]
+                     (println "ai-result: " ai-result)
+                     (if (= (first ai-result) :move)
+                       ;;;; move
+                       (let [
+                             move-pos (rest ai-result)
+                             result (bin-move board (first move-pos) (second move-pos) turn)
+                             new-board (long (:board result))
+                             new-hands (long (if (:get result)
+                                               (bin-add-hands hands (:get result) turn)
+                                               hands))]
+                         (println "                     move from" (first move-pos) "to" (second move-pos) " evaluate value:" (second (rest move-pos)))
+                         (println)
+                         (recur new-board new-hands (bit-xor turn turn-b) (inc n)))
+                       ;;;; put
+                       (let [
+                             put-pos (rest ai-result)
+                             index (first put-pos)
+                             [i j]  (second put-pos)
+                             value (second (rest put-pos))
+                             new-board (long (bin-set-cell board i j (bin-get-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)))))
+                             new-hands (long (bin-set-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)) 2r000))
+                             ]
+                         (println "                     put from" index "to" [i j] " evaluate value:" value)
+                         (println)
+                         (recur new-board new-hands (bit-xor turn turn-b) (inc n)))
+                       )
+                     )))]
+     (game1 bin-init-board 2r0 2r0000 0))))
 
 (defn bin-get-reverse [^long board ^long hands]
   {:board
@@ -601,7 +602,7 @@
           bin-init-hands -10000 10001))
   (time (bin-ai-negamx bin-init-board 2r0 2r1000)) ; 50-70 ms
   (time (bin-ai-negamx bin-init-board 2r0 2r0000)) ; 50-70 ms
-  (time (da/bin-ai-victory bin-init-board 2r0 2r0000)) ;
+  ;(time (da/bin-ai-victory bin-init-board 2r0 2r0000)) ;
   (time (evaluate bin-init-board bin-init-hands))
   (time (evaluate2 bin-init-board bin-init-hands))
   (println (bin-ai-random (board->binary test-board) 2r0 2r1000))
