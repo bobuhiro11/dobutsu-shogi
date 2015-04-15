@@ -32,22 +32,6 @@
               (bit-shift-left (bit-and belong 2r11)
                               (+ offset 2))))))
 
-(defn test-bin->abin []
-  (and
-    (= 0x0000acb090010342       ;; 初期局面
-       (bin->abin dc/bin-init-board 2r0 2r1000)
-       (bin->abin dc/bin-init-board 2r0 2r0000))
-    (= 0x0000acb090410302       ;; 初期局面からライオンがゾウの前に出た局面
-       (bin->abin 189874334401282 2r0 2r0000))
-    (= 13232964219907
-       (bin->abin 211907572146240 0 2r0000))
-    ))
-
-(test-bin->abin)
-
-(dc/bin-show-board 189874334401282)
-(bin->abin 189118969807618 2097152 2r1000)
-
 (defn bin->abin [^long board ^long hands ^long turn]
   "core.clj で定義された局面 board と持コマ hands ，そして turn から
   解析局面 abin に変換（正規化済み）
@@ -110,13 +94,22 @@
       (add-animal my-zou-num      dc/elephant 0x1)
       )))
 
-(defn abin-index [i j]
-  (* 4 (+ (* dc/width (- dc/height i 1))
-          (- dc/width j 1 ))))
 
-(defn abin-get-cell [^long abin i j]
-  (bit-and 2r1111
-           (bit-shift-right abin (abin-index i j))))
+(defn test-bin->abin []
+  (and
+    (= 0x0000acb090010342       ;; 初期局面
+       (bin->abin dc/bin-init-board 2r0 2r1000)
+       (bin->abin dc/bin-init-board 2r0 2r0000))
+    (= 0x0000acb090410302       ;; 初期局面からライオンがゾウの前に出た局面
+       (bin->abin 189874334401282 2r0 2r0000))
+    (= 13232964219907
+       (bin->abin 211907572146240 0 2r0000))
+    ))
+
+(test-bin->abin)
+
+(dc/bin-show-board 189874334401282)
+(bin->abin 189118969807618 2097152 2r1000)
 
 (defn get-next-abin [^long abin]
   "（テスト済）次の解析局面 abin を返す
@@ -168,32 +161,6 @@
        ))
 
 (test-get-next-abin)
-
-(defn get-hand-num [^long abin animal belong]
-  (let [offset (condp = animal
-                 dc/chick    48
-                 dc/giraffe  52
-                 dc/elephant 56
-                 -1)]
-    (cond (and (= (bit-and 2r11 (bit-shift-right abin offset)) belong)
-               (= (bit-and 2r11 (bit-shift-right abin (+ 2 offset))) belong))
-          2
-          (= (bit-and 2r11 (bit-shift-right abin offset)) belong)
-          1
-          (= (bit-and 2r11 (bit-shift-right abin (+ 2 offset))) belong)
-          1
-          :else
-          0)))
-
-(defn tes-bin-ai-vicotry []
-  (and (not (empty? (bin-ai-victory dc/bin-init-board 2r0 2r0000)))
-       ))
-
-(tes-bin-ai-vicotry)
-;(bin-ai-victory 189118969807618 2097152 2r1000)
-(bin-ai-victory 189187672245058  2097152 2r1000)
-
-(dc/game 2r1000 bin-ai-victory dc/bin-ai-negamx)
 
 (defn bin-ai-victory [^long board ^long hands ^long turn]
   "bin-ai-randomやbin-ai-negamx同様の機能を持ち，
@@ -262,3 +229,13 @@
           (drop-last 2 (first move-candidacy))
           (drop-last 2 (first put-candidacy))
           )))))
+
+(defn tes-bin-ai-vicotry []
+  (and (not (empty? (bin-ai-victory dc/bin-init-board 2r0 2r0000)))
+       ))
+
+(tes-bin-ai-vicotry)
+;(bin-ai-victory 189118969807618 2097152 2r1000)
+;(bin-ai-victory 189187672245058  2097152 2r1000)
+
+;(dc/game 2r1000 bin-ai-victory dc/bin-ai-negamx)
