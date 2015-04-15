@@ -203,6 +203,7 @@
                   (bin-get-hands hands (* 3 i)))
          turn-b (for [i (range 7)]
                   (bin-get-hands hands (+ 21 (* 3 i))))}]
+    (println "hands=" hands)
     (doall (map (fn [[k v]]
                   (print k ":")
                   (doall (map (fn [^long x]
@@ -493,6 +494,7 @@
                   (let [ai-result (if (= human-turn turn)
                                     (da/bin-ai-victory board hands turn)
                                     (bin-ai-random board hands turn)
+                                    ;(bin-ai-random board hands turn)
                                     ;(bin-ai-negamx board hands turn)
                                     )]
                     (println "ai-result: " ai-result)
