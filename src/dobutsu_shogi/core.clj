@@ -498,7 +498,7 @@
                                      (ai1 board hands turn)
                                      (ai2 board hands turn)
                                      )]
-                     (println "ai-result: " ai-result)
+                     ;(println "ai-result: " ai-result)
                      (if (= (first ai-result) :move)
                        ;;;; move
                        (let [
@@ -517,7 +517,7 @@
                              index (first put-pos)
                              [i j]  (second put-pos)
                              value (second (rest put-pos))
-                             new-board (long (bin-set-cell board i j (bin-get-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)))))
+                             new-board (long (bin-set-cell board i j (bit-or turn (bin-get-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0))))))
                              new-hands (long (bin-set-hands hands (+ (* 3 index) (if (= turn-b turn) 21 0)) 2r000))
                              ]
                          (println "                     put from" index "to" [i j] " evaluate value:" value)

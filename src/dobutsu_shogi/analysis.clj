@@ -106,10 +106,8 @@
        (bin->abin 211907572146240 0 2r0000))
     ))
 
-(test-bin->abin)
-
-(dc/bin-show-board 189874334401282)
-(bin->abin 189118969807618 2097152 2r1000)
+(comment
+  (test-bin->abin))
 
 (defn get-next-abin [^long abin]
   "（テスト済）次の解析局面 abin を返す
@@ -160,7 +158,8 @@
     (= (get-next-abin 0x01060ca0a0431110) -1)
        ))
 
-(test-get-next-abin)
+(comment
+  (test-get-next-abin))
 
 (defn bin-ai-victory [^long board ^long hands ^long turn]
   "bin-ai-randomやbin-ai-negamx同様の機能を持ち，
@@ -194,10 +193,16 @@
                                1000
                                (dc/bin-set-cell
                                  board i j
-                                 (bit-or turn
-                                         (dc/bin-get-hands hands
-                                                           (+ (* 3 index)
-                                                              (if (= turn dc/turn-b) 21 0)))))
+                                 ;(bit-or turn
+                                 ;        (dc/bin-get-hands hands
+                                 ;                          (+ (* 3 index)
+                                 ;                             (if (= turn dc/turn-b) 21 0)))
+                                 (if (= dc/turn-b turn)
+                                   (bit-or 2r1000 (dc/bin-get-hands hands
+                                                     (+ (* 3 index) 21)))
+                                   (bit-and 2r0111 (dc/bin-get-hands hands
+                                                     (+ (* 3 index) 0)))
+                                         ))
                                (dc/bin-set-hands hands
                                                  (+ (* 3 index)
                                                     (if (= turn dc/turn-b) 21 0))
@@ -208,21 +213,20 @@
             move-candidacy
             (filter (fn [v]
                       (let [nv (bin->abin (nth v 4)  (nth v 5) (bit-xor turn 2r1000))]
-                        (do (println "next-abin候補:" nv) (= nv next-abin))))
+                        (do  (= nv next-abin))))
                     move-result)
             put-candidacy
             (filter (fn [v]
                       (let [nv (bin->abin (nth v 4)  (nth v 5) (bit-xor turn 2r1000))]
-                        (do (println "next-abin候補:" nv) (= nv next-abin))))
+                        (do  (= nv next-abin))))
                     put-result)
             ]
-        (println "board" board)
-        (println "hands" hands)
-        (println "turn" turn)
-        (println "abin:" abin)
-        (println "next-abin:" next-abin)
-        (println "move-result" move-result)
-        (println "put-result" put-result)
+        ;(println "board" board)
+        ;(println "hands" hands)
+        ;(println "turn" turn)
+        ;(println "abin:" abin " next-abin:" next-abin)
+        ;(println "move-result" move-result)
+        ;(println "put-result" put-result)
         ;(println "move-candidacy:" move-candidacy)
         ;(println "put-candidacy:" put-candidacy)
         (if (>= (count move-candidacy) 1)
@@ -234,8 +238,13 @@
   (and (not (empty? (bin-ai-victory dc/bin-init-board 2r0 2r0000)))
        ))
 
-(tes-bin-ai-vicotry)
+(comment
+  (tes-bin-ai-vicotry))
 ;(bin-ai-victory 189118969807618 2097152 2r1000)
 ;(bin-ai-victory 189187672245058  2097152 2r1000)
 
-;(dc/game 2r1000 bin-ai-victory dc/bin-ai-negamx)
+(comment
+  (dc/game 2r1000 bin-ai-victory bin-ai-victory)
+  (get-next-abin 73760327921238016)
+  (bin->abin 54677078082 2097153 2r0000)
+  )
