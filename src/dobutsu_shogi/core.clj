@@ -1,7 +1,5 @@
 (ns dobutsu-shogi.core
   (:gen-class)
-  ;(:require
-  ;          [dobutsu-shogi.analysis :as da])
   (:use [clojure.repl]
         [clojure.tools.trace]))
 
