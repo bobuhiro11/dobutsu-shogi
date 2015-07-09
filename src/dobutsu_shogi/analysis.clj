@@ -2,6 +2,7 @@
   (:gen-class)
   (:use     [clojure.repl])
   (:require [clojure.stacktrace :as cs]
+            [clj-http.client :as cc]
             [dobutsu-shogi.core :as dc])
   (:import  [java.awt.geom AffineTransform]
            [java.io RandomAccessFile]))
@@ -87,6 +88,14 @@
       (add-animal my-zou-num      dc/elephant 0x1)
       )))
 
+(defn get-next-abin-network [^long abin]
+  (let [r (cc/get "http://bobuhiro11.net/dobutsu-shogi/next.php" {:query-params {"board" abin} :throw-exceptions false :ignore-unknown-host? true})]
+    (if (nil? r)
+      -1
+      (do
+        (println "read best answer from network")
+        (read-string (clojure.string/trim (:body r)))))))
+
 (defn get-next-abin [^long abin]
   "（テスト済）次の解析局面 abin を返す
   見つからなければ，-1を返す"
@@ -135,7 +144,8 @@
   必勝パターンを返す．
   ただし，データがない場合は bin-ai-negamax を使う．"
   (let [abin (bin->abin board hands turn)
-        next-abin (get-next-abin abin)
+        ;next-abin (get-next-abin abin)
+        next-abin (get-next-abin-network abin)
         ]
     (if (= next-abin -1)
       (do (println "abin=" abin ",next-abin=-1") (dc/bin-ai-negamx board hands turn))
@@ -200,5 +210,6 @@
 (comment
   (dc/game 2r1000 bin-ai-victory bin-ai-victory)
   (get-next-abin 73760327921238016)
+  (get-next-abin-network 73760327921238016)
   (bin->abin 54677078082 2097153 2r0000)
   )
