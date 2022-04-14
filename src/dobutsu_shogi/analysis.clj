@@ -3,6 +3,7 @@
   (:use     [clojure.repl])
   (:require [clojure.stacktrace :as cs]
             [clj-http.client :as cc]
+            [clojure.java.io :as io]
             [dobutsu-shogi.core :as dc])
   (:import  [java.awt.geom AffineTransform]
            [java.io RandomAccessFile]))
@@ -118,7 +119,8 @@
           "解析局面 abin のファイル内でのインデックスを求める
           見つからなければ，-1を返す
           "
-          (with-open [file (RandomAccessFile. "/Users/bobuhiro11/all-state_sorted.dat" "r")]
+          (with-open [file (RandomAccessFile. (str (. (java.io.File. ".") getCanonicalPath)
+                                                   "/all-state_sorted.dat") "r")]
             (loop [_min 0 _max 246803166]
               (if (> _min _max)
                 -1 ;; not found
@@ -133,7 +135,8 @@
         index (get-index abin)]
     (if (= index -1)
       -1
-      (let [v (with-open [file (RandomAccessFile. "/Users/bobuhiro11/next_state.dat" "r")]
+      (let [v (with-open [file (RandomAccessFile. (str (. (java.io.File. ".") getCanonicalPath)
+                                                       "/next_state.dat") "r")]
                 (get-value file index))]
         (if (= v 0)
           -1
@@ -144,8 +147,8 @@
   必勝パターンを返す．
   ただし，データがない場合は bin-ai-negamax を使う．"
   (let [abin (bin->abin board hands turn)
-        ;next-abin (get-next-abin abin)
-        next-abin (get-next-abin-network abin)
+        next-abin (get-next-abin abin)
+        ; next-abin (get-next-abin-network abin)
         ]
     (if (= next-abin -1)
       (do (println "abin=" abin ",next-abin=-1") (dc/bin-ai-negamx board hands turn))
