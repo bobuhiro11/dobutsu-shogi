@@ -1,4 +1,4 @@
-(defproject dobutsu-shogi "0.2.0-SNAPSHOT"
+(defproject dobutsu-shogi "0.3.0-SNAPSHOT"
   :description "dobutsu-shogi"
   :url "http://bobuhiro11.net"
   :license {:name "Eclipse Public License"
